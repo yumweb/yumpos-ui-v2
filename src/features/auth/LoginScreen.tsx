@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Eye, EyeOff, MapPin, ChevronRight } from "lucide-react";
 import { tenant } from "@/design/tenants";
-import { isApiConfigured } from "@/lib/apiClient";
+import { isApiConfigured, ApiError } from "@/lib/apiClient";
 import { isAuthenticated, setToken, setSession, type StoredLocation } from "@/lib/auth";
 import { Button } from "@/components/ui/primitives";
 import { loginEmployee, getUserLocations, setUserLocation } from "./api";
@@ -39,8 +39,12 @@ export function LoginScreen() {
       const locs = await getUserLocations();
       setLocations(locs.locations ?? []);
       setStep("location");
-    } catch {
-      setError("Could not sign in. Please try again.");
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 400 || err.status === 401)) {
+        setError("Incorrect username or password.");
+      } else {
+        setError("Could not sign in. Please try again.");
+      }
     } finally {
       setBusy(false);
     }
