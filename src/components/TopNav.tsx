@@ -1,78 +1,126 @@
-import { NavLink } from "react-router-dom";
-import {
-  LayoutDashboard,
-  ShoppingCart,
-  CalendarDays,
-  Users,
-  BarChart3,
-  ChevronDown,
-  Search,
-  MapPin,
-  Plus,
-  Bell,
-  Sun,
-  Moon,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { ChevronDown, Search, MapPin, Plus, Bell, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { tenant } from "@/design/tenants";
 import { useTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/primitives";
+import { NAV, type NavGroup } from "@/app/nav";
 
-const TABS = [
-  { to: "/home", label: "Home", icon: LayoutDashboard },
-  { to: "/sales", label: "Sales", icon: ShoppingCart },
-  { to: "/calendar", label: "Calendar", icon: CalendarDays },
-  { to: "/clients", label: "Clients", icon: Users },
-  { to: "/reports", label: "Reports", icon: BarChart3 },
-];
+function GroupMenu({
+  group,
+  active,
+  open,
+  onToggle,
+  onClose,
+}: {
+  group: NavGroup;
+  active: boolean;
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="relative">
+      <button
+        onClick={onToggle}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition-colors",
+          active ? "bg-brand-100 text-brand" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+        )}
+      >
+        {group.label}
+        <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-[calc(100%+6px)] z-40 min-w-[200px] overflow-hidden rounded-md border border-border bg-surface p-1.5 shadow-soft">
+          {group.items!.map((it) => (
+            <NavLink
+              key={it.path}
+              to={it.path}
+              onClick={onClose}
+              className={({ isActive }) =>
+                cn(
+                  "block rounded-[10px] px-3 py-2 text-sm font-medium transition-colors",
+                  isActive ? "bg-brand-100 text-brand" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+                )
+              }
+            >
+              {it.label}
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function TopNav() {
   const { theme, toggle } = useTheme();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) setOpenId(null);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  const groupActive = (g: NavGroup) =>
+    g.items ? g.items.some((it) => pathname.startsWith(it.path)) : pathname === g.path;
+
   return (
-    <header className="flex h-[66px] items-center gap-4 border-b border-border bg-surface px-6">
+    <header className="flex h-[66px] items-center gap-3 border-b border-border bg-surface px-6">
       <NavLink to="/home" className="flex items-center">
         <img src={tenant.logo} alt={tenant.name} className="h-8 w-auto" />
       </NavLink>
 
-      <nav className="ml-2 flex items-center gap-1">
-        {TABS.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              cn(
-                "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors",
-                isActive
-                  ? "bg-brand-100 text-brand"
-                  : "text-ink-2 hover:bg-surface-2 hover:text-ink"
-              )
-            }
-          >
-            <Icon className="h-[17px] w-[17px]" />
-            <span>{label}</span>
-          </NavLink>
-        ))}
-        <button className="inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm font-semibold text-ink-3 hover:bg-surface-2">
-          More <ChevronDown className="h-4 w-4" />
-        </button>
+      <nav ref={navRef} className="ml-2 flex items-center gap-1">
+        {NAV.map((g) =>
+          g.path ? (
+            <NavLink
+              key={g.id}
+              to={g.path}
+              className={({ isActive }) =>
+                cn(
+                  "rounded-md px-3 py-2 text-sm font-semibold transition-colors",
+                  isActive ? "bg-brand-100 text-brand" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+                )
+              }
+            >
+              {g.label}
+            </NavLink>
+          ) : (
+            <GroupMenu
+              key={g.id}
+              group={g}
+              active={groupActive(g)}
+              open={openId === g.id}
+              onToggle={() => setOpenId((id) => (id === g.id ? null : g.id))}
+              onClose={() => setOpenId(null)}
+            />
+          )
+        )}
       </nav>
 
       <div className="flex-1" />
 
-      <button className="inline-flex min-w-[230px] items-center gap-2 rounded-full border border-border bg-surface-2 px-3.5 py-2 text-[13.5px] text-ink-3">
+      <button className="hidden items-center gap-2 rounded-full border border-border bg-surface-2 px-3.5 py-2 text-[13.5px] text-ink-3 lg:inline-flex lg:min-w-[210px]">
         <Search className="h-4 w-4" />
-        <span>Search anything…</span>
-        <kbd className="ml-auto rounded border border-border bg-surface px-1.5 text-[11px]">
-          ⌘K
-        </kbd>
+        <span>Search…</span>
+        <kbd className="ml-auto rounded border border-border bg-surface px-1.5 text-[11px]">⌘K</kbd>
       </button>
 
-      <div className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-2 text-sm font-semibold">
+      <div className="hidden items-center gap-2 rounded-full border border-border px-3 py-2 text-sm font-semibold xl:inline-flex">
         <MapPin className="h-4 w-4" /> Indiranagar
         <ChevronDown className="h-4 w-4 text-ink-3" />
       </div>
 
-      <Button variant="primary" className="whitespace-nowrap">
+      <Button variant="primary" className="whitespace-nowrap" onClick={() => navigate("/sales")}>
         <Plus className="h-4 w-4" /> New sale
       </Button>
 
@@ -81,21 +129,14 @@ export function TopNav() {
         aria-label="Toggle theme"
         className="grid h-9 w-9 place-items-center rounded-full border border-border bg-surface-2 text-ink-2"
       >
-        {theme === "light" ? (
-          <Moon className="h-[18px] w-[18px]" />
-        ) : (
-          <Sun className="h-[18px] w-[18px]" />
-        )}
+        {theme === "light" ? <Moon className="h-[18px] w-[18px]" /> : <Sun className="h-[18px] w-[18px]" />}
       </button>
 
-      <div className="relative grid h-9 w-9 place-items-center rounded-full border border-border bg-surface-2 text-ink-2">
+      <div className="grid h-9 w-9 place-items-center rounded-full border border-border bg-surface-2 text-ink-2">
         <Bell className="h-[18px] w-[18px]" />
-        <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-surface bg-danger" />
       </div>
 
-      <div className="grid h-9 w-9 place-items-center rounded-full bg-brand-100 font-bold text-brand">
-        SJ
-      </div>
+      <div className="grid h-9 w-9 place-items-center rounded-full bg-brand-100 font-bold text-brand">SJ</div>
     </header>
   );
 }
