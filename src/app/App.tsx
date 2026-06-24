@@ -1,11 +1,22 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { WorkspaceShell } from "@/shells/WorkspaceShell";
 import { BentoHome } from "@/features/home/BentoHome";
 import { POS } from "@/features/sales/POS";
+import { LoginScreen } from "@/features/auth/LoginScreen";
+import { isAuthenticated } from "@/lib/auth";
 import { Providers } from "./providers";
 import { ALL_ROUTES } from "./nav";
 
 const BUILT = new Set(["/home", "/sales"]);
+
+/** Route guard — unauthenticated users go to /login (preserving intended path). */
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  if (!isAuthenticated()) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+  return <>{children}</>;
+}
 
 /** Honest placeholder for a real module not yet ported from the existing app. */
 function ModulePage({ title }: { title: string }) {
@@ -25,7 +36,14 @@ export default function App() {
     <Providers>
       <BrowserRouter>
         <Routes>
-          <Route element={<WorkspaceShell />}>
+          <Route path="/login" element={<LoginScreen />} />
+          <Route
+            element={
+              <RequireAuth>
+                <WorkspaceShell />
+              </RequireAuth>
+            }
+          >
             <Route index element={<Navigate to="/home" replace />} />
             <Route path="/home" element={<BentoHome />} />
             <Route path="/sales" element={<POS />} />

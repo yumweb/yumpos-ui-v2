@@ -1,4 +1,5 @@
-import logoStudio11 from "@/assets/brand/logo-studio11.png";
+import logoStudio11OnLight from "@/assets/brand/logo-studio11-on-light.png";
+import logoStudio11OnDark from "@/assets/brand/logo-studio11-on-dark.png";
 
 /**
  * Tenant configuration. A tenant is a CONFIG object, not a code copy.
@@ -10,7 +11,8 @@ export type TenantId = "studio11";
 export interface TenantConfig {
   id: TenantId;
   name: string;
-  logo: string;
+  /** Theme-aware logos: dark wordmark for light UI, light wordmark for dark UI. */
+  logo: { onLight: string; onDark: string };
   /** Feature flags — turn modules on/off per tenant without branching code. */
   features: {
     membership: boolean;
@@ -23,7 +25,7 @@ export const TENANTS: Record<TenantId, TenantConfig> = {
   studio11: {
     id: "studio11",
     name: "Studio11",
-    logo: logoStudio11,
+    logo: { onLight: logoStudio11OnLight, onDark: logoStudio11OnDark },
     features: { membership: true, whatsapp: true, googleBusiness: true },
   },
 };

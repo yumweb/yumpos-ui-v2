@@ -31,7 +31,9 @@ function headers(): HeadersInit {
 async function handle<T>(res: Response): Promise<T> {
   if (res.status === 401) {
     localStorage.removeItem(TOKEN_KEY);
-    if (typeof window !== "undefined") window.location.href = "/";
+    if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+      window.location.href = "/login";
+    }
     throw new ApiError(401, "Unauthorized");
   }
   if (!res.ok) {

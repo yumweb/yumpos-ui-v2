@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { ChevronDown, Search, MapPin, Plus, Bell, Sun, Moon } from "lucide-react";
+import { ChevronDown, Search, MapPin, Plus, Bell, Sun, Moon, LogOut, User } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { tenant } from "@/design/tenants";
 import { useTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/primitives";
 import { NAV, type NavGroup } from "@/app/nav";
+import { logout, getLocation } from "@/lib/auth";
 
 function GroupMenu({
   group,
@@ -60,11 +61,16 @@ export function TopNav() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [acctOpen, setAcctOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
+  const acctRef = useRef<HTMLDivElement>(null);
+  const location = getLocation();
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) setOpenId(null);
+      const target = e.target as Node;
+      if (navRef.current && !navRef.current.contains(target)) setOpenId(null);
+      if (acctRef.current && !acctRef.current.contains(target)) setAcctOpen(false);
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
@@ -76,7 +82,11 @@ export function TopNav() {
   return (
     <header className="flex h-[66px] items-center gap-3 border-b border-border bg-surface px-6">
       <NavLink to="/home" className="flex items-center">
-        <img src={tenant.logo} alt={tenant.name} className="h-8 w-auto" />
+        <img
+          src={theme === "light" ? tenant.logo.onLight : tenant.logo.onDark}
+          alt={tenant.name}
+          className="h-9 w-auto"
+        />
       </NavLink>
 
       <nav ref={navRef} className="ml-2 flex items-center gap-1">
@@ -116,7 +126,8 @@ export function TopNav() {
       </button>
 
       <div className="hidden items-center gap-2 rounded-full border border-border px-3 py-2 text-sm font-semibold xl:inline-flex">
-        <MapPin className="h-4 w-4" /> Indiranagar
+        <MapPin className="h-4 w-4" />
+        {location?.locationName ?? location?.name ?? "Location"}
         <ChevronDown className="h-4 w-4 text-ink-3" />
       </div>
 
@@ -136,7 +147,25 @@ export function TopNav() {
         <Bell className="h-[18px] w-[18px]" />
       </div>
 
-      <div className="grid h-9 w-9 place-items-center rounded-full bg-brand-100 font-bold text-brand">SJ</div>
+      <div ref={acctRef} className="relative">
+        <button
+          onClick={() => setAcctOpen((o) => !o)}
+          aria-label="Account menu"
+          className="grid h-9 w-9 place-items-center rounded-full bg-brand-100 text-brand"
+        >
+          <User className="h-[18px] w-[18px]" />
+        </button>
+        {acctOpen && (
+          <div className="absolute right-0 top-[calc(100%+8px)] z-40 min-w-[180px] rounded-md border border-border bg-surface p-1.5 shadow-soft">
+            <button
+              onClick={logout}
+              className="flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+            >
+              <LogOut className="h-4 w-4" /> Sign out
+            </button>
+          </div>
+        )}
+      </div>
     </header>
   );
 }
