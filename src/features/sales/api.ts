@@ -1,65 +1,80 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api, isApiConfigured } from "@/lib/apiClient";
 
-/** A search result row (service item or item kit). Loose by design — the
- *  backend shape is carried over from /items/search; we read what we use. */
-export interface SearchItem {
+/** Normalized item used by the POS. */
+export interface PosItem {
   id: number | string;
   name: string;
-  category?: string | { name?: string };
-  price?: number;
-  unit_price?: number;
-  type?: "item" | "itemkit";
+  price: number;
+  category: string;
+  isService: boolean;
 }
 
-interface ItemSearchResponse {
-  items?: { locationItem?: SearchItem[] };
-  itemKits?: { locationItemKit?: SearchItem[] };
+/** Raw /items/search row: a flat array of location-items, name/price nested in `item`. */
+interface RawLocationItem {
+  itemId?: number | string;
+  unitPrice?: number | string | null;
+  promoPrice?: number | string | null;
+  item?: {
+    itemId?: number | string;
+    name?: string;
+    isService?: boolean;
+    unitPrice?: number | string | null;
+    promoPrice?: number | string | null;
+    category?: { name?: string } | null;
+  };
 }
 
-export const itemPrice = (i: SearchItem): number =>
-  Number(i.price ?? i.unit_price ?? 0) || 0;
+function normalize(r: RawLocationItem): PosItem {
+  const it = r.item ?? {};
+  const price =
+    [r.promoPrice, r.unitPrice, it.promoPrice, it.unitPrice]
+      .map((v) => Number(v))
+      .find((n) => Number.isFinite(n) && n > 0) ?? 0;
+  return {
+    id: (r.itemId ?? it.itemId)!,
+    name: it.name ?? "Item",
+    price,
+    category: it.category?.name ?? "",
+    isService: Boolean(it.isService),
+  };
+}
 
-export const categoryName = (i: SearchItem): string =>
-  typeof i.category === "string" ? i.category : i.category?.name ?? "";
-
-/** GET /items/search?keyword= — combines items + item kits, as the existing app does. */
+/** GET /items/search?keyword= → flat array, normalized to PosItem. */
 export function useItemSearch(keyword: string) {
   return useQuery({
     queryKey: ["item-search", keyword],
     enabled: isApiConfigured() && keyword.trim().length > 0,
     queryFn: async () => {
-      const res = await api.get<ItemSearchResponse>(
+      const rows = await api.get<RawLocationItem[]>(
         `/items/search?keyword=${encodeURIComponent(keyword.trim())}`
       );
-      return [
-        ...(res.items?.locationItem ?? []),
-        ...(res.itemKits?.locationItemKit ?? []),
-      ];
+      return (Array.isArray(rows) ? rows : []).map(normalize);
     },
   });
 }
 
-export interface Customer {
-  id: number | string;
-  first_name?: string;
-  last_name?: string;
-  phone_number?: string;
+/** /customers/search/?phone= returns a single customer (name nested under person). */
+export interface CustomerLite {
+  id?: number | string;
+  personId?: number | string;
+  person?: { firstName?: string; lastName?: string; phoneNumber?: string };
   [k: string]: unknown;
 }
 
-/** GET /customers/search/?phone= — fires once a full number is entered. */
 export function useCustomerByPhone(phone: string) {
   return useQuery({
     queryKey: ["customer-phone", phone],
     enabled: isApiConfigured() && phone.replace(/\D/g, "").length >= 10,
     retry: false,
-    queryFn: () => api.get<Customer>(`/customers/search/?phone=${encodeURIComponent(phone)}`),
+    queryFn: () => api.get<CustomerLite>(`/customers/search/?phone=${encodeURIComponent(phone)}`),
   });
 }
 
-/** POST /sales — first-cut wiring. Payload mapping is intentionally minimal and
- *  must be reconciled with the backend DTO + the original Sales.js builder. */
+export const customerName = (c?: CustomerLite | null) =>
+  c ? [c.person?.firstName, c.person?.lastName].filter(Boolean).join(" ") : "";
+
+/** POST /sales — first-cut payload, to reconcile with the backend DTO. */
 export function useCreateSale() {
   return useMutation({
     mutationFn: (payload: unknown) => api.post<{ id: number | string }>(`/sales`, payload),

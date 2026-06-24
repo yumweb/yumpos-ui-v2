@@ -4,14 +4,7 @@ import { cn } from "@/lib/cn";
 import { formatINR } from "@/lib/format";
 import { isApiConfigured } from "@/lib/apiClient";
 import { Button, Card, Badge } from "@/components/ui/primitives";
-import {
-  useItemSearch,
-  useCustomerByPhone,
-  useCreateSale,
-  itemPrice,
-  categoryName,
-  type SearchItem,
-} from "./api";
+import { useItemSearch, useCustomerByPhone, useCreateSale, customerName, type PosItem } from "./api";
 
 /** Payment methods carried over verbatim from the existing register (config, not data). */
 const PAYMENT_METHODS = [
@@ -20,7 +13,7 @@ const PAYMENT_METHODS = [
 ];
 
 interface Line {
-  item: SearchItem;
+  item: PosItem;
   qty: number;
 }
 
@@ -38,12 +31,9 @@ export function POS() {
   const createSale = useCreateSale();
   const configured = isApiConfigured();
 
-  const subtotal = useMemo(
-    () => lines.reduce((s, l) => s + itemPrice(l.item) * l.qty, 0),
-    [lines]
-  );
+  const subtotal = useMemo(() => lines.reduce((s, l) => s + l.item.price * l.qty, 0), [lines]);
 
-  function add(item: SearchItem) {
+  function add(item: PosItem) {
     setLines((cur) => {
       const i = cur.findIndex((l) => l.item.id === item.id);
       if (i >= 0) {
@@ -54,13 +44,11 @@ export function POS() {
       return [...cur, { item, qty: 1 }];
     });
   }
-  const setQty = (id: SearchItem["id"], d: number) =>
+  const setQty = (id: PosItem["id"], d: number) =>
     setLines((cur) =>
-      cur
-        .map((l) => (l.item.id === id ? { ...l, qty: Math.max(0, l.qty + d) } : l))
-        .filter((l) => l.qty > 0)
+      cur.map((l) => (l.item.id === id ? { ...l, qty: Math.max(0, l.qty + d) } : l)).filter((l) => l.qty > 0)
     );
-  const remove = (id: SearchItem["id"]) => setLines((cur) => cur.filter((l) => l.item.id !== id));
+  const remove = (id: PosItem["id"]) => setLines((cur) => cur.filter((l) => l.item.id !== id));
 
   function complete() {
     if (!configured) {
@@ -69,9 +57,9 @@ export function POS() {
     }
     // First-cut payload — must be reconciled with the backend /sales DTO.
     createSale.mutate({
-      customerId: customer.data?.id ?? null,
+      customerId: customer.data?.personId ?? customer.data?.id ?? null,
       paymentMethod: pay,
-      items: lines.map((l) => ({ itemId: l.item.id, quantity: l.qty, price: itemPrice(l.item) })),
+      items: lines.map((l) => ({ itemId: l.item.id, quantity: l.qty, price: l.item.price })),
     });
   }
 
@@ -91,7 +79,6 @@ export function POS() {
           {search.isFetching && <Loader2 className="h-4 w-4 animate-spin text-ink-3" />}
         </div>
 
-        {/* search results (real items only) */}
         {keyword.trim().length > 0 && (
           <Card className="p-4">
             {!configured ? (
@@ -104,7 +91,7 @@ export function POS() {
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
                 {search.data!.map((it) => (
                   <button
-                    key={it.id}
+                    key={String(it.id)}
                     onClick={() => add(it)}
                     className="flex flex-col gap-2 rounded-md border border-border bg-surface p-3 text-left transition-colors hover:border-brand"
                   >
@@ -113,8 +100,8 @@ export function POS() {
                     </div>
                     <div className="text-[13.5px] font-semibold leading-tight">{it.name}</div>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-ink-3">{categoryName(it)}</span>
-                      <span className="font-semibold text-ink-2">{formatINR(itemPrice(it))}</span>
+                      <span className="truncate text-ink-3">{it.category}</span>
+                      <span className="shrink-0 font-semibold text-ink-2">{formatINR(it.price)}</span>
                     </div>
                   </button>
                 ))}
@@ -151,7 +138,7 @@ export function POS() {
               </thead>
               <tbody>
                 {lines.map((l) => (
-                  <tr key={l.item.id} className="border-t border-border">
+                  <tr key={String(l.item.id)} className="border-t border-border">
                     <td className="px-5 py-2.5 font-semibold">{l.item.name}</td>
                     <td className="py-2.5">
                       <div className="inline-flex items-center overflow-hidden rounded-md border border-border">
@@ -160,8 +147,8 @@ export function POS() {
                         <button onClick={() => setQty(l.item.id, 1)} className="grid h-7 w-7 place-items-center bg-surface-2 text-ink-2"><Plus className="h-3.5 w-3.5" /></button>
                       </div>
                     </td>
-                    <td className="tnum py-2.5 text-right">{formatINR(itemPrice(l.item))}</td>
-                    <td className="tnum py-2.5 text-right font-semibold">{formatINR(itemPrice(l.item) * l.qty)}</td>
+                    <td className="tnum py-2.5 text-right">{formatINR(l.item.price)}</td>
+                    <td className="tnum py-2.5 text-right font-semibold">{formatINR(l.item.price * l.qty)}</td>
                     <td className="px-5 text-right">
                       <button onClick={() => remove(l.item.id)} className="text-ink-3 hover:text-danger"><X className="h-4 w-4" /></button>
                     </td>
@@ -175,7 +162,6 @@ export function POS() {
 
       {/* right: options panel */}
       <Card className="flex h-fit flex-col gap-5 p-5">
-        {/* customer */}
         <section className="flex flex-col gap-2">
           <div className="text-[11px] font-bold uppercase tracking-wide text-ink-3">Customer</div>
           <div className="flex items-center gap-2 rounded-md border border-border bg-surface-2 px-3 py-2">
@@ -189,14 +175,11 @@ export function POS() {
             />
             {customer.isFetching && <Loader2 className="h-4 w-4 animate-spin text-ink-3" />}
           </div>
-          {customer.data && (
-            <div className="text-[13px] font-semibold text-ink-2">
-              {customer.data.first_name} {customer.data.last_name}
-            </div>
+          {customerName(customer.data) && (
+            <div className="text-[13px] font-semibold text-ink-2">{customerName(customer.data)}</div>
           )}
         </section>
 
-        {/* bill summary (real cart math; tax is location-driven, applied at checkout) */}
         <section className="flex flex-col gap-2">
           <div className="text-[11px] font-bold uppercase tracking-wide text-ink-3">Bill summary</div>
           <div className="flex justify-between text-sm text-ink-2"><span>Subtotal</span><span className="tnum">{formatINR(subtotal)}</span></div>
@@ -204,7 +187,6 @@ export function POS() {
           <div className="mt-1 flex justify-between border-t border-border pt-2 text-lg font-bold"><span>Total</span><span className="tnum">{formatINR(subtotal)}</span></div>
         </section>
 
-        {/* payment methods (carried over) */}
         <section className="flex flex-col gap-2">
           <div className="text-[11px] font-bold uppercase tracking-wide text-ink-3">Payment</div>
           <div className="grid grid-cols-3 gap-2">

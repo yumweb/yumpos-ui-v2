@@ -79,10 +79,11 @@ export function BentoHome() {
   const t = today.data;
   const m = month.data;
 
-  const projected =
-    m && typeof m.total_payment === "number"
-      ? (m.total_payment / Math.max(getDate(now), 1)) * 30
-      : undefined;
+  // total_payment can arrive as a string from the API — coerce defensively.
+  const monthPay = m != null ? Number(m.total_payment) : NaN;
+  const projected = Number.isFinite(monthPay)
+    ? (monthPay / Math.max(getDate(now), 1)) * 30
+    : undefined;
 
   return (
     <div>
