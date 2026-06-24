@@ -1,0 +1,65 @@
+/* ============================================================
+   YumPOS design tokens — semantic, tenant + theme aware.
+   Tenant = data-brand (studio11 today; isaspa later = a token set).
+   Theme  = data-theme (light | dark).
+   Components consume these vars only — never raw hex.
+   ============================================================ */
+
+/* ---- Studio11 · light (default) ---- */
+:root,
+[data-brand="studio11"][data-theme="light"] {
+  --brand: #3f1647;
+  --brand-600: #532060;
+  --brand-100: #efe7f1;
+  --brand-fg: #ffffff;
+  --brand-dark: #3f1647;
+  --accent: #c79a3b;
+
+  --bg: #f3f2f6;
+  --surface: #ffffff;
+  --surface-2: #fafafb;
+  --border: #e6e8ec;
+
+  --text: #1d2330;
+  --text-2: #5a6477;
+  --text-3: #8a93a6;
+
+  --ok: #0f9d63;
+  --ok-soft: #e4f6ee;
+  --warn: #d98a1a;
+  --warn-soft: #fbf0dc;
+  --danger: #e23b48;
+  --danger-soft: #fbe6e8;
+
+  --radius: 20px;
+  --radius-sm: 13px;
+}
+
+/* ---- Studio11 · dark ---- */
+[data-brand="studio11"][data-theme="dark"] {
+  --brand: #a366bd;
+  --brand-600: #b87fce;
+  --brand-100: #2b2236;
+  --brand-fg: #ffffff;
+  --brand-dark: #181221;
+  --accent: #d8b25a;
+
+  --bg: #131019;
+  --surface: #1d1827;
+  --surface-2: #261f32;
+  --border: #342c43;
+
+  --text: #efecf5;
+  --text-2: #b4abc6;
+  --text-3: #877e9a;
+
+  --ok: #34d399;
+  --ok-soft: rgba(52, 211, 153, 0.15);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.15);
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.16);
+
+  --radius: 20px;
+  --radius-sm: 13px;
+}
