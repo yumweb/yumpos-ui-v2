@@ -1,8 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { WorkspaceShell } from "@/shells/WorkspaceShell";
 import { BentoHome } from "@/features/home/BentoHome";
+import { POS } from "@/features/sales/POS";
 import { Providers } from "./providers";
 import { ALL_ROUTES } from "./nav";
+
+const BUILT = new Set(["/home", "/sales"]);
 
 /** Honest placeholder for a real module not yet ported from the existing app. */
 function ModulePage({ title }: { title: string }) {
@@ -25,7 +28,8 @@ export default function App() {
           <Route element={<WorkspaceShell />}>
             <Route index element={<Navigate to="/home" replace />} />
             <Route path="/home" element={<BentoHome />} />
-            {ALL_ROUTES.filter((r) => r.path !== "/home").map((r) => (
+            <Route path="/sales" element={<POS />} />
+            {ALL_ROUTES.filter((r) => !BUILT.has(r.path)).map((r) => (
               <Route key={r.path} path={r.path} element={<ModulePage title={r.label} />} />
             ))}
           </Route>
