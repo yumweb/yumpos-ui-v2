@@ -2,12 +2,13 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { WorkspaceShell } from "@/shells/WorkspaceShell";
 import { BentoHome } from "@/features/home/BentoHome";
 import { POS } from "@/features/sales/POS";
+import { Customers } from "@/features/customers/Customers";
 import { LoginScreen } from "@/features/auth/LoginScreen";
 import { isAuthenticated } from "@/lib/auth";
 import { Providers } from "./providers";
 import { ALL_ROUTES } from "./nav";
 
-const BUILT = new Set(["/home", "/sales"]);
+const BUILT = new Set(["/home", "/sales", "/customers"]);
 
 /** Route guard — unauthenticated users go to /login (preserving intended path). */
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -47,6 +48,7 @@ export default function App() {
             <Route index element={<Navigate to="/home" replace />} />
             <Route path="/home" element={<BentoHome />} />
             <Route path="/sales" element={<POS />} />
+            <Route path="/customers" element={<Customers />} />
             {ALL_ROUTES.filter((r) => !BUILT.has(r.path)).map((r) => (
               <Route key={r.path} path={r.path} element={<ModulePage title={r.label} />} />
             ))}
