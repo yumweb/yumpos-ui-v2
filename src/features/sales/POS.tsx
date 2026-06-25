@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Search, Plus, Minus, X, User, Users, Pause, Loader2, Check, AlertCircle,
+  Search, Plus, Minus, X, User, UserPlus, Users, Pause, Loader2, Check, AlertCircle,
   Pencil, MoreHorizontal, CalendarPlus, CreditCard, ClipboardList, Package, FileText, Monitor,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { NewCustomerModal } from "./NewCustomerModal";
 import { formatINR } from "@/lib/format";
 import { isApiConfigured } from "@/lib/apiClient";
 import { getLocation, getUser } from "@/lib/auth";
@@ -60,6 +61,7 @@ export function POS() {
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [newCustOpen, setNewCustOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -200,7 +202,8 @@ export function POS() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* top actions */}
+      {/* top actions — require a selected customer */}
+      {customer && (
       <div className="flex items-center justify-end gap-2">
         <div className="relative" ref={menuRef}>
           <button onClick={() => setMenuOpen((o) => !o)} aria-label="More actions" className="grid h-10 w-12 place-items-center rounded-md border border-border bg-surface text-ink-2 hover:bg-surface-2">
@@ -225,13 +228,14 @@ export function POS() {
             </div>
           )}
         </div>
-        <Button onClick={() => navigate("/appointments")} className="border-ok bg-ok text-white hover:opacity-90">
+        <Button variant="accent" onClick={() => navigate("/appointments")}>
           <CalendarPlus className="h-4 w-4" /> Book an appointment
         </Button>
-        <Button onClick={() => submit(1)} disabled={createSale.isPending} className="border-warn bg-warn text-white hover:opacity-90">
+        <Button variant="default" onClick={() => submit(1)} disabled={createSale.isPending}>
           <Pause className="h-4 w-4" /> Suspend
         </Button>
       </div>
+      )}
 
       {/* main grid */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_372px]">
@@ -356,16 +360,25 @@ export function POS() {
             selectedCustomerView
           ) : (
             <>
-              <div className="flex items-center gap-2 rounded-md border border-border bg-surface-2 px-3 py-2">
-                <User className="h-4 w-4 text-ink-3" />
-                <input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  inputMode="tel"
-                  placeholder="Customer phone number…"
-                  className="w-full bg-transparent text-sm outline-none placeholder:text-ink-3"
-                />
-                {custSearch.isFetching && <Loader2 className="h-4 w-4 animate-spin text-ink-3" />}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setNewCustOpen(true)}
+                  title="New customer"
+                  className="grid h-[42px] w-11 shrink-0 place-items-center rounded-md bg-brand text-brand-fg transition-colors hover:bg-brand-600"
+                >
+                  <UserPlus className="h-5 w-5" />
+                </button>
+                <div className="flex flex-1 items-center gap-2 rounded-md border border-border bg-surface-2 px-3 py-2">
+                  <User className="h-4 w-4 text-ink-3" />
+                  <input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    inputMode="tel"
+                    placeholder="Customer phone number…"
+                    className="w-full bg-transparent text-sm outline-none placeholder:text-ink-3"
+                  />
+                  {custSearch.isFetching && <Loader2 className="h-4 w-4 animate-spin text-ink-3" />}
+                </div>
               </div>
               {custSearch.data && (
                 <button
@@ -446,6 +459,13 @@ export function POS() {
         )}
       </Card>
       </div>
+
+      <NewCustomerModal
+        open={newCustOpen}
+        onClose={() => setNewCustOpen(false)}
+        defaultPhone={phone}
+        onCreated={(c) => { setCustomer(c); setError(""); }}
+      />
     </div>
   );
 }

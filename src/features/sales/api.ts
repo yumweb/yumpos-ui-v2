@@ -229,3 +229,53 @@ export function useCreateSale() {
     mutationFn: (payload: unknown) => api.post<{ id: number | string; stockWarnings?: unknown[] }>(`/sales`, payload),
   });
 }
+
+/* ---- Create customer (POST /customers, flat payload) ---- */
+
+export interface NewCustomerInput {
+  firstName: string;
+  lastName?: string;
+  email?: string;
+  phoneNumber: string;
+  gender: string;
+  address1?: string;
+  address2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  comments?: string;
+}
+
+interface CreatedCustomer {
+  id?: number | string;
+  personId?: number | string;
+  person?: { id?: number | string };
+}
+
+export function useCreateCustomer() {
+  return useMutation({
+    mutationFn: (input: NewCustomerInput) => {
+      const payload = {
+        firstName: input.firstName.trim(),
+        lastName: input.lastName?.trim() ?? "",
+        ...(input.email?.trim() ? { email: input.email.trim() } : {}),
+        phoneNumber: input.phoneNumber.trim(),
+        gender: input.gender,
+        address1: input.address1?.trim() ?? "",
+        address2: input.address2?.trim() ?? "",
+        city: input.city?.trim() ?? "",
+        state: input.state?.trim() ?? "",
+        zip: input.zip?.trim() ?? "",
+        country: input.country?.trim() ?? "",
+        comments: input.comments?.trim() ?? "",
+        points: 0,
+        currentSpendForPoints: 0,
+        companyAddress: "",
+        dndSms: false,
+        dndEmail: false,
+      };
+      return api.post<CreatedCustomer>("/customers", payload);
+    },
+  });
+}
