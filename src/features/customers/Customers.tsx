@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Search, Plus, Loader2 } from "lucide-react";
+import { Search, Plus, Loader2, ChevronDown } from "lucide-react";
 import { isApiConfigured } from "@/lib/apiClient";
 import { useListState } from "@/lib/useListState";
 import { DataTable, type Column } from "@/components/DataTable";
@@ -63,7 +63,8 @@ export function Customers() {
     },
   ];
 
-  const selectCls = "h-[38px] rounded-full border border-border bg-surface px-3.5 text-sm text-ink-2 outline-none focus:border-brand";
+  // appearance-none + custom chevron so the arrow has breathing space inside the rounded pill.
+  const selectCls = "h-[38px] appearance-none rounded-full border border-border bg-surface pl-3.5 pr-9 text-sm text-ink-2 outline-none focus:border-brand";
 
   return (
     <div className="flex flex-col gap-5">
@@ -92,19 +93,25 @@ export function Customers() {
           {isFetching && <Loader2 className="h-4 w-4 animate-spin text-ink-3" />}
         </label>
 
-        <select value={source} onChange={(e) => { setSource(e.target.value); setPage(1); }} className={selectCls}>
-          <option value="">Lead Source</option>
-          {(sources ?? []).map((s) => (
-            <option key={String(s.id)} value={String(s.id)}>{s.source}</option>
-          ))}
-        </select>
+        <div className="relative">
+          <select value={source} onChange={(e) => { setSource(e.target.value); setPage(1); }} className={selectCls}>
+            <option value="">Lead Source</option>
+            {(sources ?? []).map((s) => (
+              <option key={String(s.id)} value={String(s.id)}>{s.source}</option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3" />
+        </div>
 
-        <select value={gender} onChange={(e) => { setGender(e.target.value); setPage(1); }} className={selectCls}>
-          <option value="">Gender</option>
-          <option value="0">Male</option>
-          <option value="1">Female</option>
-          <option value="2">Other</option>
-        </select>
+        <div className="relative">
+          <select value={gender} onChange={(e) => { setGender(e.target.value); setPage(1); }} className={selectCls}>
+            <option value="">Gender</option>
+            <option value="0">Male</option>
+            <option value="1">Female</option>
+            <option value="2">Other</option>
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3" />
+        </div>
       </div>
 
       <DataTable
