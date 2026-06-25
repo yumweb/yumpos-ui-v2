@@ -128,7 +128,8 @@ export function BentoHome() {
                     formatter={(v: number) => [formatINR(Number(v) || 0), "Sales"]}
                     labelFormatter={fmtDay}
                     contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 12, color: "var(--text)" }}
-                    labelStyle={{ color: "var(--text-2)" }}
+                    labelStyle={{ color: "var(--text-2)", fontWeight: 600, marginBottom: 2 }}
+                    itemStyle={{ color: "var(--text)", fontWeight: 700 }}
                   />
                   <Bar dataKey="total" fill="var(--brand-fg)" radius={[5, 5, 0, 0]} maxBarSize={34} isAnimationActive={false} />
                 </BarChart>
