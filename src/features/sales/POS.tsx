@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Plus, Minus, X, User, Pause, Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatINR } from "@/lib/format";
@@ -19,9 +19,19 @@ interface Line {
 
 export function POS() {
   const [keyword, setKeyword] = useState("");
+  const [open, setOpen] = useState(false);
   const [lines, setLines] = useState<Line[]>([]);
   const [phone, setPhone] = useState("");
   const [pay, setPay] = useState<string | null>("Cash");
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
 
   const search = useItemSearch(keyword);
   const cats = useCategoryNames();
@@ -42,6 +52,7 @@ export function POS() {
       }
       return [...cur, { item, qty: 1 }];
     });
+    setOpen(false);
   }
   const setQty = (id: PosItem["id"], d: number) =>
     setLines((cur) =>
@@ -66,20 +77,24 @@ export function POS() {
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
       {/* left: search-first + results + register */}
       <div className="flex flex-col gap-4">
-        <div className="relative">
+        <div className="relative" ref={searchRef}>
         <div className="flex items-center gap-2 rounded-md border-2 border-brand bg-surface px-4 py-3 shadow-sm2">
           <Search className="h-5 w-5 text-ink-3" />
           <input
             autoFocus
             value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
+            onChange={(e) => {
+              setKeyword(e.target.value);
+              setOpen(e.target.value.trim().length > 0);
+            }}
+            onFocus={() => keyword.trim().length > 0 && setOpen(true)}
             placeholder="Search or scan item, service, package…"
             className="w-full bg-transparent text-[15px] outline-none placeholder:text-ink-3"
           />
           {search.isFetching && <Loader2 className="h-4 w-4 animate-spin text-ink-3" />}
         </div>
 
-        {keyword.trim().length > 0 && (
+        {open && keyword.trim().length > 0 && (
           <Card className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden shadow-soft">
             {!configured ? (
               <p className="p-6 text-center text-sm text-ink-3">Connect the API to search the live catalogue.</p>
