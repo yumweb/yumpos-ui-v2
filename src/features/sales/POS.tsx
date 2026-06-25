@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Search, Plus, Minus, X, User, Pause, Loader2, Check, AlertCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import {
+  Search, Plus, Minus, X, User, Users, Pause, Loader2, Check, AlertCircle,
+  Pencil, MoreHorizontal, CalendarPlus, CreditCard, ClipboardList, Package, FileText, Monitor,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatINR } from "@/lib/format";
 import { isApiConfigured } from "@/lib/apiClient";
@@ -27,6 +31,21 @@ const PAYMENT_METHODS = [
   "Points", "Airtel Payments", "Paytm", "Deal Sites", "PhonePe", "Google Pay", "Bharat QR",
 ];
 
+const fmtCustDate = (d?: string | null) => {
+  if (!d) return "NA";
+  const dt = new Date(d);
+  return isNaN(dt.getTime()) ? "NA" : dt.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+};
+
+function InfoRow({ label, value, labelClass, alt }: { label: string; value: React.ReactNode; labelClass?: string; alt?: boolean }) {
+  return (
+    <div className={cn("flex items-center justify-between px-4 py-2", alt ? "bg-surface-2" : "bg-surface")}>
+      <span className={cn("text-[13px] font-semibold", labelClass ?? "text-ink-2")}>{label}</span>
+      <span className="text-[13px] font-semibold">{value}</span>
+    </div>
+  );
+}
+
 export function POS() {
   const locationId = (getLocation()?.locationId as number | string) ?? 1;
   const user = getUser<{ personId?: number | string; id?: number | string }>();
@@ -40,11 +59,15 @@ export function POS() {
   const [pay, setPay] = useState<string>("Cash");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) setOpen(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
@@ -145,28 +168,73 @@ export function POS() {
     });
   }
 
+  const detach = () => { setCustomer(null); setPhone(""); setError(""); };
+  const lcNumber = customer ? `${customer.loyaltyCardNumber ?? ""} (${customer.loyaltyCardDiscount ?? ""}%)`.trim() : "";
   const selectedCustomerView = customer && (
-    <div className="flex items-start gap-2 rounded-md border border-border bg-surface-2 px-3 py-2.5">
-      <User className="mt-0.5 h-4 w-4 text-brand" />
-      <div className="min-w-0 flex-1">
-        <div className="font-semibold">{customerName(customer) || "Customer"}</div>
-        <div className="text-xs text-ink-3">
-          {customer.person?.phoneNumber ?? "—"}
-          {customer.loyaltyCardNumber ? ` · ${customer.loyaltyCardNumber}` : ""}
-          {customer.points != null ? ` · ${customer.points} pts` : ""}
+    <div className="overflow-hidden rounded-md border border-border">
+      <div className="flex items-start justify-between bg-surface-2 px-4 py-3">
+        <div>
+          <div className="text-[15px] font-bold">{customerName(customer) || "Customer"}</div>
+          <span className="mt-1 inline-flex text-ink-3"><Pencil className="h-4 w-4" /></span>
         </div>
+        <div className="tnum text-[15px] font-bold">{customer.person?.phoneNumber ?? "—"}</div>
       </div>
-      <button
-        onClick={() => { setCustomer(null); setPhone(""); }}
-        className="text-xs font-semibold text-brand hover:underline"
-      >
-        Change
-      </button>
+      <div>
+        <InfoRow label="Points" value={customer.points != null ? Math.trunc(Number(customer.points)) : 0} labelClass="text-danger" />
+        <InfoRow label="LC Number" value={lcNumber || "(%)"} alt />
+        <InfoRow label="Total Visits" value={customer.saleCount ?? 0} />
+        <InfoRow label="Lifetime Purchase Value" value={`Rs. ${customer.lifetimeValue ?? 0}`} alt />
+        <InfoRow label="Birthdate" value={fmtCustDate(customer.birthday)} />
+        <InfoRow label="Anniversary" value={fmtCustDate(customer.anniversary)} alt />
+      </div>
+      <div className="flex items-center gap-5 border-t border-border px-4 py-3">
+        <button className="flex items-center gap-1.5 text-[13px] font-semibold text-brand hover:underline">
+          <Pencil className="h-4 w-4" /> Update customer
+        </button>
+        <button onClick={detach} className="flex items-center gap-1.5 text-[13px] font-semibold text-danger hover:underline">
+          <X className="h-4 w-4" /> Detach
+        </button>
+      </div>
     </div>
   );
 
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_372px]">
+    <div className="flex flex-col gap-4">
+      {/* top actions */}
+      <div className="flex items-center justify-end gap-2">
+        <div className="relative" ref={menuRef}>
+          <button onClick={() => setMenuOpen((o) => !o)} aria-label="More actions" className="grid h-10 w-12 place-items-center rounded-md border border-border bg-surface text-ink-2 hover:bg-surface-2">
+            <MoreHorizontal className="h-5 w-5" />
+          </button>
+          {menuOpen && (
+            <div className="absolute left-0 top-[calc(100%+6px)] z-40 min-w-[236px] rounded-md border border-border bg-surface p-1.5 shadow-soft">
+              {[
+                { icon: CreditCard, label: "Sell GiftCard" },
+                { icon: Users, label: "Sell FamilyCard" },
+                { icon: ClipboardList, label: "Suspend Sales", onClick: () => { setMenuOpen(false); submit(1); } },
+                { icon: Package, label: "Packages Sale" },
+                { icon: FileText, label: "Lookup Receipt" },
+                { icon: FileText, label: "Show last sale receipt" },
+                { icon: Monitor, label: "Customer Facing Display" },
+              ].map((it) => (
+                <button key={it.label} onClick={it.onClick} disabled={!it.onClick} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-sm font-medium text-ink-2 transition-colors hover:bg-surface-2 disabled:opacity-50">
+                  <it.icon className="h-4 w-4" /> {it.label}
+                  {!it.onClick && <span className="ml-auto text-[10px] uppercase tracking-wide text-ink-3">soon</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <Button onClick={() => navigate("/appointments")} className="border-ok bg-ok text-white hover:opacity-90">
+          <CalendarPlus className="h-4 w-4" /> Book an appointment
+        </Button>
+        <Button onClick={() => submit(1)} disabled={createSale.isPending} className="border-warn bg-warn text-white hover:opacity-90">
+          <Pause className="h-4 w-4" /> Suspend
+        </Button>
+      </div>
+
+      {/* main grid */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_372px]">
       {/* left: search-first + results + register */}
       <div className="flex flex-col gap-4">
         <div className="relative" ref={searchRef}>
@@ -369,9 +437,6 @@ export function POS() {
             {createSale.isSuccess && <Badge tone="ok"><Check className="h-3.5 w-3.5" /> Sale saved</Badge>}
 
             <div className="flex flex-col gap-2 border-t border-border pt-4">
-              <Button variant="default" disabled={createSale.isPending} onClick={() => submit(1)}>
-                <Pause className="h-4 w-4" /> Suspend
-              </Button>
               <Button variant="primary" size="lg" disabled={createSale.isPending} onClick={() => submit(0)}>
                 {createSale.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Complete Sale · {formatINR(bill.total)}
@@ -380,6 +445,7 @@ export function POS() {
           </>
         )}
       </Card>
+      </div>
     </div>
   );
 }

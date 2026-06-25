@@ -200,8 +200,12 @@ export interface CustomerLite {
   personId?: number | string;
   person?: { id?: number | string; firstName?: string; lastName?: string; phoneNumber?: string };
   points?: number | string;
-  loyaltyCardNumber?: string;
-  loyaltyCardDiscount?: number | string;
+  loyaltyCardNumber?: string | null;
+  loyaltyCardDiscount?: number | string | null;
+  saleCount?: number | string;
+  lifetimeValue?: number | string;
+  birthday?: string | null;
+  anniversary?: string | null;
   [k: string]: unknown;
 }
 
