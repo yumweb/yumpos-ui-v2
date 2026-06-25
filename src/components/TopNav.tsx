@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { ChevronDown, Search, MapPin, Plus, Bell, Sun, Moon, LogOut, User } from "lucide-react";
+import { ChevronDown, MapPin, Plus, Bell, LogOut, User } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { tenant } from "@/design/tenants";
 import { useTheme } from "@/lib/theme";
@@ -57,7 +57,7 @@ function GroupMenu({
 }
 
 export function TopNav() {
-  const { theme, toggle } = useTheme();
+  const { theme } = useTheme();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -85,7 +85,7 @@ export function TopNav() {
         <img
           src={theme === "light" ? tenant.logo.onLight : tenant.logo.onDark}
           alt={tenant.name}
-          className="h-9 w-auto"
+          className="h-10 w-auto"
         />
       </NavLink>
 
@@ -119,12 +119,6 @@ export function TopNav() {
 
       <div className="flex-1" />
 
-      <button className="hidden items-center gap-2 rounded-full border border-border bg-surface-2 px-3.5 py-2 text-[13.5px] text-ink-3 lg:inline-flex lg:min-w-[210px]">
-        <Search className="h-4 w-4" />
-        <span>Search…</span>
-        <kbd className="ml-auto rounded border border-border bg-surface px-1.5 text-[11px]">⌘K</kbd>
-      </button>
-
       <div className="hidden items-center gap-2 rounded-full border border-border px-3 py-2 text-sm font-semibold xl:inline-flex">
         <MapPin className="h-4 w-4" />
         {location?.locationName ?? location?.name ?? "Location"}
@@ -134,14 +128,6 @@ export function TopNav() {
       <Button variant="primary" className="whitespace-nowrap" onClick={() => navigate("/sales")}>
         <Plus className="h-4 w-4" /> New sale
       </Button>
-
-      <button
-        onClick={toggle}
-        aria-label="Toggle theme"
-        className="grid h-9 w-9 place-items-center rounded-full border border-border bg-surface-2 text-ink-2"
-      >
-        {theme === "light" ? <Moon className="h-[18px] w-[18px]" /> : <Sun className="h-[18px] w-[18px]" />}
-      </button>
 
       <div className="grid h-9 w-9 place-items-center rounded-full border border-border bg-surface-2 text-ink-2">
         <Bell className="h-[18px] w-[18px]" />
