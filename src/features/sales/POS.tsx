@@ -66,6 +66,7 @@ export function POS() {
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
       {/* left: search-first + results + register */}
       <div className="flex flex-col gap-4">
+        <div className="relative">
         <div className="flex items-center gap-2 rounded-md border-2 border-brand bg-surface px-4 py-3 shadow-sm2">
           <Search className="h-5 w-5 text-ink-3" />
           <input
@@ -79,7 +80,7 @@ export function POS() {
         </div>
 
         {keyword.trim().length > 0 && (
-          <Card className="overflow-hidden">
+          <Card className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden shadow-soft">
             {!configured ? (
               <p className="p-6 text-center text-sm text-ink-3">Connect the API to search the live catalogue.</p>
             ) : search.isLoading ? (
@@ -112,6 +113,7 @@ export function POS() {
             )}
           </Card>
         )}
+        </div>
 
         {/* register */}
         <Card className="flex min-h-[320px] flex-col">
