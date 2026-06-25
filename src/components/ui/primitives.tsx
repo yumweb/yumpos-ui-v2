@@ -53,7 +53,7 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
 }
 
 /* Badge ------------------------------------------------------------------- */
-type BadgeTone = "default" | "brand" | "ok" | "warn" | "danger";
+export type BadgeTone = "default" | "brand" | "ok" | "warn" | "danger";
 const badgeTones: Record<BadgeTone, string> = {
   default: "bg-surface-2 text-ink-2",
   brand: "bg-brand-100 text-brand",
