@@ -89,7 +89,9 @@ export function TopNav() {
         />
       </NavLink>
 
-      <nav ref={navRef} className="ml-2 flex items-center gap-1">
+      <div className="flex-1" />
+
+      <nav ref={navRef} className="flex items-center gap-1">
         {NAV.map((g) =>
           g.path ? (
             <NavLink
@@ -116,8 +118,6 @@ export function TopNav() {
           )
         )}
       </nav>
-
-      <div className="flex-1" />
 
       <div className="hidden items-center gap-2 rounded-full border border-border px-3 py-2 text-sm font-semibold xl:inline-flex">
         <MapPin className="h-4 w-4" />

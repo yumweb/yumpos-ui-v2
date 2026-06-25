@@ -1,29 +1,29 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { startOfDay, endOfDay, startOfMonth, getDate } from "date-fns";
+import { startOfDay, endOfDay, startOfMonth, startOfWeek, getDate } from "date-fns";
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import {
   ShoppingCart,
   CalendarDays,
-  Wallet,
   TrendingUp,
   Users,
   Magnet,
   Ticket,
   IdCard,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatINR } from "@/lib/format";
 import { isApiConfigured } from "@/lib/apiClient";
-import { useDashboardSales } from "./api";
+import { useDashboardSales, useSummaryGraph } from "./api";
 
-function Tile({ accent, className, children }: { accent?: boolean; className?: string; children: React.ReactNode }) {
+function Tile({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
     <div
       className={cn(
-        "flex min-h-[156px] flex-col gap-2.5 overflow-hidden rounded-lg p-5 transition-transform duration-150 hover:-translate-y-0.5",
-        accent ? "text-brand-fg" : "border border-border bg-surface shadow-sm2 hover:shadow-soft",
+        "flex min-h-[156px] flex-col gap-2.5 overflow-hidden rounded-lg border border-border bg-surface p-5 shadow-sm2 transition-transform duration-150 hover:-translate-y-0.5 hover:shadow-soft",
         className
       )}
-      style={accent ? { background: "linear-gradient(150deg, var(--brand), var(--brand-600))" } : undefined}
     >
       {children}
     </div>
@@ -53,10 +53,20 @@ const QUICK = [
   { label: "Tickets", to: "/tickets", icon: Ticket },
 ];
 
+const fmtDay = (d: string) => {
+  const dt = new Date(d);
+  return isNaN(dt.getTime()) ? String(d) : dt.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+};
+
 export function BentoHome() {
   const now = new Date();
-  const today = useDashboardSales(startOfDay(now).toISOString(), endOfDay(now).toISOString());
-  const month = useDashboardSales(startOfMonth(now).toISOString(), endOfDay(now).toISOString());
+  const todayEnd = endOfDay(now).toISOString();
+  const today = useDashboardSales(startOfDay(now).toISOString(), todayEnd);
+  const month = useDashboardSales(startOfMonth(now).toISOString(), todayEnd);
+
+  const [range, setRange] = useState<"weekly" | "monthly">("weekly");
+  const gStart = (range === "weekly" ? startOfWeek(now, { weekStartsOn: 1 }) : startOfMonth(now)).toISOString();
+  const graph = useSummaryGraph(gStart, todayEnd);
 
   const configured = isApiConfigured();
   const tLoad = configured && today.isLoading;
@@ -83,42 +93,88 @@ export function BentoHome() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2">
-        {/* Sale Today (accent) */}
-        <Tile accent>
-          <TileHead icon={Wallet} accent>Sale today</TileHead>
-          <Metric loading={tLoad} value={t ? formatINR(Number(t.total_payment) || 0) : undefined} className="tnum text-[34px] font-extrabold leading-none tracking-tight" />
-          <div className="text-[12.5px] opacity-80">{walkins(t)}</div>
-        </Tile>
-
-        {/* Sale This Month */}
-        <Tile>
-          <TileHead icon={TrendingUp}>Sale this month</TileHead>
-          <Metric loading={mLoad} value={m ? formatINR(Number(m.total_payment) || 0) : undefined} className="tnum text-[34px] font-extrabold leading-none tracking-tight" />
-          <div className="text-[12.5px] text-ink-3">{walkins(m)}</div>
-        </Tile>
-
-        {/* Appointments Today */}
-        <Tile>
-          <TileHead icon={CalendarDays}>Appointments today</TileHead>
-          <div className="flex flex-1 items-center gap-8">
-            <div>
-              <Metric loading={tLoad} value={t ? t.scheduled_appointments ?? 0 : undefined} className="tnum text-[30px] font-extrabold" />
-              <div className="text-xs text-ink-3">Scheduled</div>
-            </div>
-            <div>
-              <Metric loading={tLoad} value={t ? t.completed_appointments ?? 0 : undefined} className="tnum text-[30px] font-extrabold" />
-              <div className="text-xs text-ink-3">Completed</div>
-            </div>
+      <div className="grid gap-[18px] lg:grid-cols-2">
+        {/* Col 1 — graph on dark/accent background */}
+        <div
+          className="flex min-h-[330px] flex-col gap-3 rounded-lg p-5 text-brand-fg"
+          style={{ background: "linear-gradient(150deg, var(--brand), var(--brand-600))" }}
+        >
+          <div className="flex items-center justify-between">
+            <TileHead icon={BarChart3} accent>Sales summary</TileHead>
+            <select
+              value={range}
+              onChange={(e) => setRange(e.target.value as "weekly" | "monthly")}
+              className="rounded-md border border-white/25 bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-brand-fg outline-none"
+            >
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
           </div>
-        </Tile>
+          <div className="min-h-0 flex-1">
+            {graph.data && graph.data.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={graph.data} margin={{ top: 8, right: 4, bottom: 0, left: 4 }}>
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={fmtDay}
+                    tick={{ fill: "rgba(255,255,255,.65)", fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    interval="preserveStartEnd"
+                    minTickGap={16}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "rgba(255,255,255,.12)" }}
+                    formatter={(v: number) => [formatINR(Number(v) || 0), "Sales"]}
+                    labelFormatter={fmtDay}
+                    contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 12, color: "var(--text)" }}
+                    labelStyle={{ color: "var(--text-2)" }}
+                  />
+                  <Bar dataKey="total" fill="var(--brand-fg)" radius={[5, 5, 0, 0]} maxBarSize={34} isAnimationActive={false} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm opacity-70">
+                {configured ? (graph.isLoading ? "Loading…" : "No sales in this range.") : "Sales summary graph"}
+              </div>
+            )}
+          </div>
+        </div>
 
-        {/* Projected Sales */}
-        <Tile>
-          <TileHead icon={TrendingUp}>Projected sales</TileHead>
-          <Metric loading={mLoad} value={projected != null ? formatINR(projected) : undefined} className="tnum text-[34px] font-extrabold leading-none tracking-tight" />
-          <div className="text-[12.5px] text-ink-3">Month-end estimate</div>
-        </Tile>
+        {/* Col 2 — bento boxes (2x2) */}
+        <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2">
+          <Tile>
+            <TileHead icon={TrendingUp}>Sale today</TileHead>
+            <Metric loading={tLoad} value={t ? formatINR(Number(t.total_payment) || 0) : undefined} className="tnum text-[30px] font-extrabold leading-none tracking-tight" />
+            <div className="text-[12.5px] text-ink-3">{walkins(t)}</div>
+          </Tile>
+
+          <Tile>
+            <TileHead icon={TrendingUp}>Sale this month</TileHead>
+            <Metric loading={mLoad} value={m ? formatINR(Number(m.total_payment) || 0) : undefined} className="tnum text-[30px] font-extrabold leading-none tracking-tight" />
+            <div className="text-[12.5px] text-ink-3">{walkins(m)}</div>
+          </Tile>
+
+          <Tile>
+            <TileHead icon={CalendarDays}>Appointments today</TileHead>
+            <div className="flex flex-1 items-center gap-8">
+              <div>
+                <Metric loading={tLoad} value={t ? t.scheduled_appointments ?? 0 : undefined} className="tnum text-[28px] font-extrabold" />
+                <div className="text-xs text-ink-3">Scheduled</div>
+              </div>
+              <div>
+                <Metric loading={tLoad} value={t ? t.completed_appointments ?? 0 : undefined} className="tnum text-[28px] font-extrabold" />
+                <div className="text-xs text-ink-3">Completed</div>
+              </div>
+            </div>
+          </Tile>
+
+          <Tile>
+            <TileHead icon={TrendingUp}>Projected sales</TileHead>
+            <Metric loading={mLoad} value={projected != null ? formatINR(projected) : undefined} className="tnum text-[30px] font-extrabold leading-none tracking-tight" />
+            <div className="text-[12.5px] text-ink-3">Month-end estimate</div>
+          </Tile>
+        </div>
       </div>
 
       {/* Quick actions */}
