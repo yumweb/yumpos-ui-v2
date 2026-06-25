@@ -9,10 +9,10 @@ export interface PosItem {
   category: string;
   categoryParentId?: number | string;
   isService: boolean;
+  taxIncluded: boolean;
   stock: number;
 }
 
-/** Raw /items/search row: a flat array of location-items, name/price nested in `item`. */
 interface RawLocationItem {
   itemId?: number | string;
   unitPrice?: number | string | null;
@@ -22,6 +22,7 @@ interface RawLocationItem {
     itemId?: number | string;
     name?: string;
     isService?: boolean;
+    taxIncluded?: boolean;
     unitPrice?: number | string | null;
     promoPrice?: number | string | null;
     category?: { name?: string; parentId?: number | string } | null;
@@ -41,6 +42,7 @@ function normalize(r: RawLocationItem): PosItem {
     category: it.category?.name ?? "",
     categoryParentId: it.category?.parentId ?? undefined,
     isService: Boolean(it.isService),
+    taxIncluded: Boolean(it.taxIncluded),
     stock: Number(r.quantity ?? 0) || 0,
   };
 }
@@ -64,7 +66,7 @@ interface CategoryName {
   name: string;
 }
 
-/** GET /categories/names → id→name map, to resolve a category's parent label. */
+/** GET /categories/names → id→name map (resolve a category's parent label). */
 export function useCategoryNames() {
   return useQuery({
     queryKey: ["category-names"],
@@ -80,11 +82,126 @@ export function useCategoryNames() {
   });
 }
 
-/** /customers/search/?phone= returns a single customer (name nested under person). */
+/* ---- Location: technicians + tax config (GET /locations/:id) ---- */
+
+export interface Technician {
+  id: number | string;
+  name: string;
+}
+export interface TaxConfig {
+  name1: string;
+  rate1: number;
+  name2: string;
+  rate2: number;
+}
+
+interface RawLocation {
+  employeeConnection?: Array<{
+    person?: { id?: number | string; firstName?: string; lastName?: string };
+    employee?: {
+      id?: number | string;
+      personId?: number | string;
+      deleted?: boolean;
+      isCorporate?: boolean;
+      isOwner?: boolean;
+      person?: { id?: number | string; firstName?: string; lastName?: string };
+    };
+  }>;
+  taxRates?: Array<{ name?: string; rate?: number | string }>;
+  default_tax_1_rate?: number | string;
+  default_tax_1_name?: string;
+  default_tax_2_rate?: number | string;
+  default_tax_2_name?: string;
+  [k: string]: unknown;
+}
+
+export function useLocation(locationId: number | string) {
+  return useQuery({
+    queryKey: ["location", locationId],
+    enabled: isApiConfigured() && locationId != null,
+    staleTime: 30 * 60 * 1000,
+    queryFn: () => api.get<RawLocation>(`/locations/${locationId}`),
+  });
+}
+
+export function parseTechnicians(loc?: RawLocation): Technician[] {
+  const conn = loc?.employeeConnection ?? [];
+  return conn
+    .filter((c) => c.employee && c.employee.deleted === false && c.employee.isCorporate === false && c.employee.isOwner === false)
+    .map((c) => {
+      const p = c.person ?? c.employee?.person;
+      return {
+        id: (p?.id ?? c.employee?.personId ?? c.employee?.id)!,
+        name: [p?.firstName, p?.lastName].filter(Boolean).join(" ") || "Staff",
+      };
+    });
+}
+
+/** Mirrors taxCalculations.getTaxConfiguration (Studio11 default 9% + 9%). */
+export function parseTaxConfig(loc?: RawLocation): TaxConfig {
+  let rates: Array<{ name?: string; rate?: number | string }> | null = null;
+  if (Array.isArray(loc)) rates = loc;
+  else if (loc?.taxRates) rates = loc.taxRates;
+  else if (loc?.default_tax_1_rate != null)
+    rates = [
+      { name: loc.default_tax_1_name || "CGST", rate: loc.default_tax_1_rate },
+      { name: loc.default_tax_2_name || "SGST", rate: loc.default_tax_2_rate },
+    ];
+  const r1 = rates?.[0] ? Number(rates[0].rate) : NaN;
+  const r2 = rates?.[1] ? Number(rates[1].rate) : NaN;
+  if (!Number.isFinite(r1) || !Number.isFinite(r2)) {
+    return { name1: "CGST", rate1: 9, name2: "SGST", rate2: 9 };
+  }
+  return { name1: rates![0].name || "CGST", rate1: r1, name2: rates![1].name || "SGST", rate2: r2 };
+}
+
+export interface CartLine {
+  item: PosItem;
+  qty: number;
+  technicianId: number | string | null;
+}
+
+export interface Bill {
+  subtotal: number;
+  cgst: number;
+  sgst: number;
+  taxTotal: number;
+  total: number;
+}
+
+/** Per-line tax (inclusive vs exclusive), CGST/SGST split from the location config. */
+export function computeBill(lines: CartLine[], tax: TaxConfig): Bill {
+  const rate = tax.rate1 + tax.rate2;
+  let subtotal = 0;
+  let cgst = 0;
+  let sgst = 0;
+  for (const l of lines) {
+    const gross = l.item.price * l.qty;
+    const base = l.item.taxIncluded && rate > 0 ? gross / (1 + rate / 100) : gross;
+    const lineTax = l.item.taxIncluded ? gross - base : (base * rate) / 100;
+    subtotal += base;
+    if (rate > 0) {
+      cgst += (lineTax * tax.rate1) / rate;
+      sgst += (lineTax * tax.rate2) / rate;
+    }
+  }
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  subtotal = r2(subtotal);
+  cgst = r2(cgst);
+  sgst = r2(sgst);
+  const taxTotal = r2(cgst + sgst);
+  return { subtotal, cgst, sgst, taxTotal, total: r2(subtotal + taxTotal) };
+}
+
+/* ---- Customer ---- */
+
 export interface CustomerLite {
   id?: number | string;
   personId?: number | string;
-  person?: { firstName?: string; lastName?: string; phoneNumber?: string };
+  person?: { id?: number | string; firstName?: string; lastName?: string; phoneNumber?: string };
+  points?: number | string;
+  loyaltyCardNumber?: string;
+  loyaltyCardDiscount?: number | string;
   [k: string]: unknown;
 }
 
@@ -99,10 +216,12 @@ export function useCustomerByPhone(phone: string) {
 
 export const customerName = (c?: CustomerLite | null) =>
   c ? [c.person?.firstName, c.person?.lastName].filter(Boolean).join(" ") : "";
+export const customerId = (c?: CustomerLite | null) => c?.person?.id ?? c?.personId ?? c?.id ?? null;
 
-/** POST /sales — first-cut payload, to reconcile with the backend DTO. */
+/* ---- Create / suspend sale (POST /sales) ---- */
+
 export function useCreateSale() {
   return useMutation({
-    mutationFn: (payload: unknown) => api.post<{ id: number | string }>(`/sales`, payload),
+    mutationFn: (payload: unknown) => api.post<{ id: number | string; stockWarnings?: unknown[] }>(`/sales`, payload),
   });
 }
