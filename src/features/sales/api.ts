@@ -7,7 +7,9 @@ export interface PosItem {
   name: string;
   price: number;
   category: string;
+  categoryParentId?: number | string;
   isService: boolean;
+  stock: number;
 }
 
 /** Raw /items/search row: a flat array of location-items, name/price nested in `item`. */
@@ -15,13 +17,14 @@ interface RawLocationItem {
   itemId?: number | string;
   unitPrice?: number | string | null;
   promoPrice?: number | string | null;
+  quantity?: number | string | null;
   item?: {
     itemId?: number | string;
     name?: string;
     isService?: boolean;
     unitPrice?: number | string | null;
     promoPrice?: number | string | null;
-    category?: { name?: string } | null;
+    category?: { name?: string; parentId?: number | string } | null;
   };
 }
 
@@ -36,7 +39,9 @@ function normalize(r: RawLocationItem): PosItem {
     name: it.name ?? "Item",
     price,
     category: it.category?.name ?? "",
+    categoryParentId: it.category?.parentId ?? undefined,
     isService: Boolean(it.isService),
+    stock: Number(r.quantity ?? 0) || 0,
   };
 }
 
@@ -50,6 +55,27 @@ export function useItemSearch(keyword: string) {
         `/items/search?keyword=${encodeURIComponent(keyword.trim())}`
       );
       return (Array.isArray(rows) ? rows : []).map(normalize);
+    },
+  });
+}
+
+interface CategoryName {
+  id: number | string;
+  name: string;
+}
+
+/** GET /categories/names → id→name map, to resolve a category's parent label. */
+export function useCategoryNames() {
+  return useQuery({
+    queryKey: ["category-names"],
+    enabled: isApiConfigured(),
+    staleTime: 60 * 60 * 1000,
+    queryFn: async () => {
+      const res = await api.get<CategoryName[] | { categories?: CategoryName[] }>("/categories/names");
+      const arr = Array.isArray(res) ? res : res.categories ?? [];
+      const map = new Map<string, string>();
+      arr.forEach((c) => map.set(String(c.id), c.name));
+      return map;
     },
   });
 }

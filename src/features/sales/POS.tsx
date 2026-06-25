@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 import { formatINR } from "@/lib/format";
 import { isApiConfigured } from "@/lib/apiClient";
 import { Button, Card, Badge } from "@/components/ui/primitives";
-import { useItemSearch, useCustomerByPhone, useCreateSale, customerName, type PosItem } from "./api";
+import { useItemSearch, useCategoryNames, useCustomerByPhone, useCreateSale, customerName, type PosItem } from "./api";
 
 /** Payment methods carried over verbatim from the existing register (config, not data). */
 const PAYMENT_METHODS = [
@@ -17,9 +17,6 @@ interface Line {
   qty: number;
 }
 
-const mono = (name: string) =>
-  name.split(/\s+/).filter((w) => /[A-Za-z]/.test(w[0])).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-
 export function POS() {
   const [keyword, setKeyword] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
@@ -27,6 +24,8 @@ export function POS() {
   const [pay, setPay] = useState<string | null>("Cash");
 
   const search = useItemSearch(keyword);
+  const cats = useCategoryNames();
+  const catMap = cats.data ?? new Map<string, string>();
   const customer = useCustomerByPhone(phone);
   const createSale = useCreateSale();
   const configured = isApiConfigured();
@@ -80,31 +79,35 @@ export function POS() {
         </div>
 
         {keyword.trim().length > 0 && (
-          <Card className="p-4">
+          <Card className="overflow-hidden">
             {!configured ? (
-              <p className="py-6 text-center text-sm text-ink-3">Connect the API to search the live catalogue.</p>
+              <p className="p-6 text-center text-sm text-ink-3">Connect the API to search the live catalogue.</p>
             ) : search.isLoading ? (
-              <p className="py-6 text-center text-sm text-ink-3">Searching…</p>
+              <p className="p-6 text-center text-sm text-ink-3">Searching…</p>
             ) : (search.data?.length ?? 0) === 0 ? (
-              <p className="py-6 text-center text-sm text-ink-3">No items match “{keyword}”.</p>
+              <p className="p-6 text-center text-sm text-ink-3">No items match “{keyword}”.</p>
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-                {search.data!.map((it) => (
-                  <button
-                    key={String(it.id)}
-                    onClick={() => add(it)}
-                    className="flex flex-col gap-2 rounded-md border border-border bg-surface p-3 text-left transition-colors hover:border-brand"
-                  >
-                    <div className="grid h-12 place-items-center rounded-md bg-brand-100 text-base font-extrabold text-brand">
-                      {mono(it.name)}
-                    </div>
-                    <div className="text-[13.5px] font-semibold leading-tight">{it.name}</div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="truncate text-ink-3">{it.category}</span>
-                      <span className="shrink-0 font-semibold text-ink-2">{formatINR(it.price)}</span>
-                    </div>
-                  </button>
-                ))}
+              <div className="max-h-[58vh] divide-y divide-border overflow-auto">
+                {search.data!.map((it) => {
+                  const parent = it.categoryParentId != null ? catMap.get(String(it.categoryParentId)) : undefined;
+                  const meta = `${it.isService ? "Service" : "Retail Product"} · ${it.category || "NA"}${parent ? " › " + parent : ""}`;
+                  return (
+                    <button
+                      key={String(it.id)}
+                      onClick={() => add(it)}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-2"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[14px] font-semibold">{it.name}</div>
+                        <div className="truncate text-xs text-ink-3">
+                          {meta}
+                          {!it.isService && <span className="text-ink-2"> · Stock: {it.stock}</span>}
+                        </div>
+                      </div>
+                      <div className="tnum shrink-0 font-semibold">{formatINR(it.price)}</div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </Card>
