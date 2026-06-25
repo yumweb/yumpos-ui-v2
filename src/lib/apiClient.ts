@@ -40,7 +40,9 @@ async function handle<T>(res: Response): Promise<T> {
     const text = await res.text().catch(() => res.statusText);
     throw new ApiError(res.status, text || `Request failed (${res.status})`);
   }
-  return (await res.json()) as T;
+  // Some endpoints (e.g. PATCH) return 200/204 with an empty body — don't choke on it.
+  const body = await res.text();
+  return (body ? JSON.parse(body) : undefined) as T;
 }
 
 export const api = {

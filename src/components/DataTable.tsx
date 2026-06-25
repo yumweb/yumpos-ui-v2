@@ -46,7 +46,7 @@ export function DataTable<T>({
               {columns.map((c, i) => (
                 <th
                   key={i}
-                  className={cn("py-3 font-semibold", c.align === "right" && "text-right", i === 0 && "pl-5", i === span - 1 && "pr-5", c.className)}
+                  className={cn("px-3 py-3 font-semibold", c.align === "right" && "text-right", i === 0 && "pl-5", i === span - 1 && "pr-5", c.className)}
                 >
                   {c.header}
                 </th>
@@ -66,7 +66,7 @@ export function DataTable<T>({
                   {columns.map((c, i) => (
                     <td
                       key={i}
-                      className={cn("py-2.5", c.align === "right" && "text-right tnum", i === 0 && "pl-5 font-semibold", i === span - 1 && "pr-5")}
+                      className={cn("px-3 py-2.5", c.align === "right" && "text-right tnum", i === 0 && "pl-5 font-semibold", i === span - 1 && "pr-5")}
                     >
                       {c.cell(row)}
                     </td>

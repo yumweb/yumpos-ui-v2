@@ -2,7 +2,16 @@ import { useEffect, useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/primitives";
-import { useCreateCustomer, type CustomerLite } from "./api";
+import { useCreateCustomer, useUpdateCustomer, type CustomerLite } from "./api";
+
+export interface EditTarget {
+  id?: number | string;
+  gender?: string | number;
+  person?: {
+    firstName?: string; lastName?: string; email?: string; phoneNumber?: string;
+    address1?: string; address2?: string; city?: string; state?: string; zip?: string; country?: string; comments?: string;
+  };
+}
 
 type Form = {
   firstName: string; lastName: string; email: string; phoneNumber: string; gender: string;
@@ -31,19 +40,35 @@ function Field({ label, required, value, onChange, type = "text", textarea }: {
   );
 }
 
-export function NewCustomerModal({ open, onClose, defaultPhone, onCreated }: {
+export function NewCustomerModal({ open, onClose, defaultPhone, editCustomer, onCreated }: {
   open: boolean;
   onClose: () => void;
   defaultPhone?: string;
+  editCustomer?: EditTarget | null;
   onCreated: (c: CustomerLite) => void;
 }) {
+  const isEdit = !!editCustomer;
   const [f, setF] = useState<Form>(EMPTY);
   const [err, setErr] = useState("");
   const create = useCreateCustomer();
+  const update = useUpdateCustomer();
+  const pending = create.isPending || update.isPending;
 
   useEffect(() => {
-    if (open) { setF({ ...EMPTY, phoneNumber: defaultPhone ?? "" }); setErr(""); }
-  }, [open, defaultPhone]);
+    if (!open) return;
+    setErr("");
+    if (editCustomer) {
+      const p = editCustomer.person ?? {};
+      setF({
+        firstName: p.firstName ?? "", lastName: p.lastName ?? "", email: p.email ?? "",
+        phoneNumber: p.phoneNumber ?? "", gender: editCustomer.gender != null ? String(editCustomer.gender) : "",
+        address1: p.address1 ?? "", address2: p.address2 ?? "", city: p.city ?? "",
+        state: p.state ?? "", zip: p.zip ?? "", country: p.country ?? "", comments: p.comments ?? "",
+      });
+    } else {
+      setF({ ...EMPTY, phoneNumber: defaultPhone ?? "" });
+    }
+  }, [open, defaultPhone, editCustomer]);
 
   if (!open) return null;
   const set = (k: keyof Form) => (v: string) => setF((s) => ({ ...s, [k]: v }));
@@ -54,27 +79,30 @@ export function NewCustomerModal({ open, onClose, defaultPhone, onCreated }: {
     if (!f.phoneNumber.trim()) return setErr("Phone number is required.");
     if (!f.gender) return setErr("Gender is required.");
     setErr("");
-    create.mutate(f, {
-      onSuccess: (res) => {
-        const pid = res?.personId ?? res?.person?.id;
-        onCreated({
-          id: res?.id,
-          personId: pid,
-          person: { id: pid, firstName: f.firstName.trim(), lastName: f.lastName.trim(), phoneNumber: f.phoneNumber.trim() },
-          points: 0, saleCount: 0, lifetimeValue: 0,
-          loyaltyCardNumber: null, loyaltyCardDiscount: null, birthday: null, anniversary: null,
-        });
-        onClose();
-      },
-      onError: () => setErr("Could not create the customer. Check the required fields and try again."),
-    });
+    const onSuccess = (res?: { id?: number | string; personId?: number | string; person?: { id?: number | string } }) => {
+      const pid = res?.personId ?? res?.person?.id ?? editCustomer?.id;
+      onCreated({
+        id: res?.id ?? editCustomer?.id,
+        personId: pid,
+        person: { id: pid, firstName: f.firstName.trim(), lastName: f.lastName.trim(), phoneNumber: f.phoneNumber.trim() },
+        points: 0, saleCount: 0, lifetimeValue: 0,
+        loyaltyCardNumber: null, loyaltyCardDiscount: null, birthday: null, anniversary: null,
+      });
+      onClose();
+    };
+    const onError = () => setErr(`Could not ${isEdit ? "update" : "create"} the customer. Check the fields and try again.`);
+    if (isEdit && editCustomer?.id != null) {
+      update.mutate({ id: editCustomer.id, input: f }, { onSuccess, onError });
+    } else {
+      create.mutate(f, { onSuccess, onError });
+    }
   }
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onMouseDown={onClose}>
       <div onMouseDown={(e) => e.stopPropagation()} className="max-h-[90vh] w-full max-w-[560px] overflow-auto rounded-lg border border-border bg-surface shadow-soft">
         <header className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h2 className="text-lg font-bold">New Customer</h2>
+          <h2 className="text-lg font-bold">{isEdit ? "Edit Customer" : "New Customer"}</h2>
           <button onClick={onClose} aria-label="Close" className="text-ink-3 hover:text-ink"><X className="h-5 w-5" /></button>
         </header>
         <form onSubmit={submit} className="grid gap-3 p-5">
@@ -106,8 +134,8 @@ export function NewCustomerModal({ open, onClose, defaultPhone, onCreated }: {
           {err && <div className="rounded-md bg-[var(--danger-soft)] px-3 py-2 text-sm font-medium text-danger">{err}</div>}
           <div className="mt-1 flex justify-end gap-2">
             <Button type="button" variant="default" onClick={onClose}>Cancel</Button>
-            <Button type="submit" variant="primary" disabled={create.isPending}>
-              {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Create customer
+            <Button type="submit" variant="primary" disabled={pending}>
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} {isEdit ? "Save changes" : "Create customer"}
             </Button>
           </div>
         </form>

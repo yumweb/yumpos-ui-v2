@@ -31,6 +31,7 @@ export function Customers() {
   const [source, setSource] = useState("");
   const [gender, setGender] = useState("");
   const [newOpen, setNewOpen] = useState(false);
+  const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
   const configured = isApiConfigured();
   const qc = useQueryClient();
 
@@ -53,6 +54,13 @@ export function Customers() {
     { header: "Gender", cell: (c) => genderLabel(c.gender) },
     { header: "Points", align: "right", cell: (c) => Number(c.points ?? 0) },
     { header: "Created", cell: (c) => fmtDate(c.createdDate) },
+    { header: "Last Sale", cell: () => <span className="font-semibold text-brand/80">View Sales</span> },
+    {
+      header: "Action",
+      cell: (c) => (
+        <button onClick={() => setEditCustomer(c)} className="font-semibold text-brand hover:underline">Edit</button>
+      ),
+    },
   ];
 
   const selectCls = "h-[38px] rounded-full border border-border bg-surface px-3.5 text-sm text-ink-2 outline-none focus:border-brand";
@@ -114,8 +122,9 @@ export function Customers() {
       />
 
       <NewCustomerModal
-        open={newOpen}
-        onClose={() => setNewOpen(false)}
+        open={newOpen || !!editCustomer}
+        editCustomer={editCustomer}
+        onClose={() => { setNewOpen(false); setEditCustomer(null); }}
         onCreated={() => qc.invalidateQueries({ queryKey: ["customers"] })}
       />
     </div>
