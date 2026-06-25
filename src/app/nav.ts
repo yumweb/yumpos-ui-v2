@@ -29,7 +29,7 @@ export const NAV: NavGroup[] = [
   },
   {
     id: "clients",
-    label: "Clients",
+    label: "Customers",
     items: [
       { label: "Customers", path: "/customers" },
       { label: "Family Cards", path: "/family-cards" },

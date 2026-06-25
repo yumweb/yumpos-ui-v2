@@ -1,7 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Search, Plus, Loader2 } from "lucide-react";
 import { isApiConfigured } from "@/lib/apiClient";
 import { useListState } from "@/lib/useListState";
-import { DataTable, ListHeader, type Column } from "@/components/DataTable";
+import { DataTable, type Column } from "@/components/DataTable";
+import { Button } from "@/components/ui/primitives";
+import { NewCustomerModal } from "@/features/sales/NewCustomerModal";
 import { useCustomers, useLeadSources, type Customer } from "./api";
 
 const LIMIT = 20;
@@ -24,8 +28,13 @@ const fmtDate = (d?: string) => {
 
 export function Customers() {
   const { search, setSearch, debounced, page, setPage } = useListState();
+  const [source, setSource] = useState("");
+  const [gender, setGender] = useState("");
+  const [newOpen, setNewOpen] = useState(false);
   const configured = isApiConfigured();
-  const { data, isLoading, isFetching } = useCustomers(page, LIMIT, debounced);
+  const qc = useQueryClient();
+
+  const { data, isLoading, isFetching } = useCustomers(page, LIMIT, debounced, source, gender);
   const { data: sources } = useLeadSources();
 
   const sourceMap = useMemo(() => {
@@ -46,16 +55,50 @@ export function Customers() {
     { header: "Created", cell: (c) => fmtDate(c.createdDate) },
   ];
 
+  const selectCls = "h-[38px] rounded-full border border-border bg-surface px-3.5 text-sm text-ink-2 outline-none focus:border-brand";
+
   return (
     <div className="flex flex-col gap-5">
-      <ListHeader
-        title="Customers"
-        subtitle={configured ? `${count.toLocaleString("en-IN")} total` : "Live data not connected"}
-        search={search}
-        onSearch={setSearch}
-        searching={isFetching}
-        placeholder="Search name…"
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-[25px] font-bold tracking-tight">Customers</h1>
+        {configured && (
+          <span className="grid h-7 min-w-7 place-items-center rounded-full bg-surface-2 px-2 text-sm font-semibold text-ink-2">
+            {count.toLocaleString("en-IN")}
+          </span>
+        )}
+        <div className="flex-1" />
+        <Button variant="primary" onClick={() => setNewOpen(true)}>
+          <Plus className="h-4 w-4" /> New Customer
+        </Button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 rounded-full border border-border bg-surface px-3.5 py-2">
+          <Search className="h-4 w-4 text-ink-3" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search name, phone…"
+            className="w-56 bg-transparent text-sm outline-none placeholder:text-ink-3"
+          />
+          {isFetching && <Loader2 className="h-4 w-4 animate-spin text-ink-3" />}
+        </label>
+
+        <select value={source} onChange={(e) => { setSource(e.target.value); setPage(1); }} className={selectCls}>
+          <option value="">Lead Source</option>
+          {(sources ?? []).map((s) => (
+            <option key={String(s.id)} value={String(s.id)}>{s.source}</option>
+          ))}
+        </select>
+
+        <select value={gender} onChange={(e) => { setGender(e.target.value); setPage(1); }} className={selectCls}>
+          <option value="">Gender</option>
+          <option value="0">Male</option>
+          <option value="1">Female</option>
+          <option value="2">Other</option>
+        </select>
+      </div>
+
       <DataTable
         columns={columns}
         rows={data?.customers ?? []}
@@ -68,6 +111,12 @@ export function Customers() {
         onPage={setPage}
         emptyText="No customers found."
         countNoun="customers"
+      />
+
+      <NewCustomerModal
+        open={newOpen}
+        onClose={() => setNewOpen(false)}
+        onCreated={() => qc.invalidateQueries({ queryKey: ["customers"] })}
       />
     </div>
   );

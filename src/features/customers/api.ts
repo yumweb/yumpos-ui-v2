@@ -24,14 +24,28 @@ interface CustomerListResponse {
   count: number;
 }
 
-export function useCustomers(page: number, limit: number, name: string) {
+export function useCustomers(
+  page: number,
+  limit: number,
+  name: string,
+  source = "",
+  gender = ""
+) {
   return useQuery({
-    queryKey: ["customers", page, limit, name],
+    queryKey: ["customers", page, limit, name, source, gender],
     enabled: isApiConfigured(),
     placeholderData: keepPreviousData,
-    queryFn: () => {
-      const filters = name ? `&name=${encodeURIComponent(name)}` : "";
-      return api.get<CustomerListResponse>(`/customers/?page=${page}&limit=${limit}${filters}`);
+    queryFn: async () => {
+      let filters = "";
+      if (name) filters += `&name=${encodeURIComponent(name)}`;
+      if (source) filters += `&source=${encodeURIComponent(source)}`;
+      if (gender) filters += `&gender=${encodeURIComponent(gender)}`;
+      const res = await api.get<CustomerListResponse>(`/customers/?page=${page}&limit=${limit}${filters}`);
+      // latest created first
+      const customers = [...(res.customers ?? [])].sort(
+        (a, b) => new Date(b.createdDate ?? 0).getTime() - new Date(a.createdDate ?? 0).getTime()
+      );
+      return { ...res, customers };
     },
   });
 }
