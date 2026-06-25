@@ -7,12 +7,13 @@ import { Leads } from "@/features/leads/Leads";
 import { FamilyCards } from "@/features/familyCards/FamilyCards";
 import { GiftCards } from "@/features/giftCards/GiftCards";
 import { Coupons } from "@/features/coupons/Coupons";
+import { Services } from "@/features/services/Services";
 import { LoginScreen } from "@/features/auth/LoginScreen";
 import { isAuthenticated } from "@/lib/auth";
 import { Providers } from "./providers";
 import { ALL_ROUTES } from "./nav";
 
-const BUILT = new Set(["/home", "/sales", "/customers", "/leads", "/family-cards", "/gift-cards", "/coupons"]);
+const BUILT = new Set(["/home", "/sales", "/customers", "/leads", "/family-cards", "/gift-cards", "/coupons", "/services"]);
 
 /** Route guard — unauthenticated users go to /login (preserving intended path). */
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -57,6 +58,7 @@ export default function App() {
             <Route path="/family-cards" element={<FamilyCards />} />
             <Route path="/gift-cards" element={<GiftCards />} />
             <Route path="/coupons" element={<Coupons />} />
+            <Route path="/services" element={<Services />} />
             {ALL_ROUTES.filter((r) => !BUILT.has(r.path)).map((r) => (
               <Route key={r.path} path={r.path} element={<ModulePage title={r.label} />} />
             ))}
