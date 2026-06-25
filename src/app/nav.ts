@@ -4,9 +4,20 @@
  * regrouped from a flat 27-item sidebar into a small set of grouped tabs.
  * No invented modules.
  */
+import type { LucideIcon } from "lucide-react";
+import {
+  ShoppingCart, CalendarDays, UserPlus,
+  Users, CreditCard, Gift, TicketPercent,
+  Scissors, ShoppingBag, Boxes, Truck, PackageCheck,
+  BarChart3, UserCheck, FileText,
+  MessageCircle, Megaphone, MessagesSquare, Building2, Star, Mail, LifeBuoy,
+  UserCog, Clock, Settings, MapPin,
+} from "lucide-react";
+
 export interface NavLeaf {
   label: string;
   path: string;
+  icon?: LucideIcon;
 }
 export interface NavGroup {
   id: string;
@@ -22,63 +33,63 @@ export const NAV: NavGroup[] = [
     id: "sell",
     label: "Sell",
     items: [
-      { label: "New Sale", path: "/sales" },
-      { label: "Appointments", path: "/appointments" },
-      { label: "Leads", path: "/leads" },
+      { label: "New Sale", path: "/sales", icon: ShoppingCart },
+      { label: "Appointments", path: "/appointments", icon: CalendarDays },
+      { label: "Leads", path: "/leads", icon: UserPlus },
     ],
   },
   {
     id: "clients",
     label: "Customers",
     items: [
-      { label: "Customers", path: "/customers" },
-      { label: "Family Cards", path: "/family-cards" },
-      { label: "Gift Cards", path: "/gift-cards" },
-      { label: "Coupons", path: "/coupons" },
-      { label: "Promotions", path: "/promotions" },
+      { label: "Customers", path: "/customers", icon: Users },
+      { label: "Family Cards", path: "/family-cards", icon: CreditCard },
+      { label: "Gift Cards", path: "/gift-cards", icon: Gift },
+      { label: "Coupons", path: "/coupons", icon: TicketPercent },
+      // Promotions intentionally dropped: superseded by Engage / WhatsApp messaging.
     ],
   },
   {
     id: "catalog",
     label: "Catalog",
     items: [
-      { label: "Services", path: "/services" },
-      { label: "Retail Products", path: "/retail-products" },
-      { label: "Item Kits", path: "/item-kits" },
-      { label: "Suppliers", path: "/suppliers" },
-      { label: "Receivings", path: "/receivings" },
+      { label: "Services", path: "/services", icon: Scissors },
+      { label: "Retail Products", path: "/retail-products", icon: ShoppingBag },
+      { label: "Item Kits", path: "/item-kits", icon: Boxes },
+      { label: "Suppliers", path: "/suppliers", icon: Truck },
+      { label: "Receivings", path: "/receivings", icon: PackageCheck },
     ],
   },
   {
     id: "reports",
     label: "Reports",
     items: [
-      { label: "Reports", path: "/reports" },
-      { label: "Customer Retention", path: "/reports/retention" },
-      { label: "EOD Report", path: "/eod-report" },
+      { label: "Reports", path: "/reports", icon: BarChart3 },
+      { label: "Customer Retention", path: "/reports/retention", icon: UserCheck },
+      { label: "EOD Report", path: "/eod-report", icon: FileText },
     ],
   },
   {
     id: "engage",
     label: "Engage",
     items: [
-      { label: "WhatsApp", path: "/whatsapp" },
-      { label: "WA Campaigns", path: "/whatsapp/campaigns" },
-      { label: "WA Chat", path: "/whatsapp/chat" },
-      { label: "Google Business", path: "/google-business" },
-      { label: "Reviews", path: "/reviews" },
-      { label: "Messages", path: "/messages" },
-      { label: "Tickets", path: "/tickets" },
+      { label: "WhatsApp", path: "/whatsapp", icon: MessageCircle },
+      { label: "WA Campaigns", path: "/whatsapp/campaigns", icon: Megaphone },
+      { label: "WA Chat", path: "/whatsapp/chat", icon: MessagesSquare },
+      { label: "Google Business", path: "/google-business", icon: Building2 },
+      { label: "Reviews", path: "/reviews", icon: Star },
+      { label: "Messages", path: "/messages", icon: Mail },
+      { label: "Tickets", path: "/tickets", icon: LifeBuoy },
     ],
   },
   {
     id: "more",
     label: "More",
     items: [
-      { label: "Employees", path: "/employees" },
-      { label: "Time Clock", path: "/time-clock" },
-      { label: "Store Config", path: "/settings/store" },
-      { label: "Locations", path: "/settings/locations" },
+      { label: "Employees", path: "/employees", icon: UserCog },
+      { label: "Time Clock", path: "/time-clock", icon: Clock },
+      { label: "Store Config", path: "/settings/store", icon: Settings },
+      { label: "Locations", path: "/settings/locations", icon: MapPin },
     ],
   },
 ];

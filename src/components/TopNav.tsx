@@ -35,21 +35,25 @@ function GroupMenu({
       </button>
       {open && (
         <div className="absolute left-0 top-[calc(100%+6px)] z-40 min-w-[200px] overflow-hidden rounded-md border border-border bg-surface p-1.5 shadow-soft">
-          {group.items!.map((it) => (
-            <NavLink
-              key={it.path}
-              to={it.path}
-              onClick={onClose}
-              className={({ isActive }) =>
-                cn(
-                  "block rounded-[10px] px-3 py-2 text-sm font-medium transition-colors",
-                  isActive ? "bg-brand-100 text-brand" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
-                )
-              }
-            >
-              {it.label}
-            </NavLink>
-          ))}
+          {group.items!.map((it) => {
+            const Icon = it.icon;
+            return (
+              <NavLink
+                key={it.path}
+                to={it.path}
+                onClick={onClose}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-sm font-medium transition-colors",
+                    isActive ? "bg-brand-100 text-brand" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+                  )
+                }
+              >
+                {Icon && <Icon className="h-[18px] w-[18px] shrink-0 opacity-80" />}
+                {it.label}
+              </NavLink>
+            );
+          })}
         </div>
       )}
     </div>
