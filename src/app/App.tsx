@@ -12,12 +12,14 @@ import { RetailProducts } from "@/features/retail/RetailProducts";
 import { ItemKits } from "@/features/itemKits/ItemKits";
 import { Suppliers } from "@/features/suppliers/Suppliers";
 import { Receivings } from "@/features/receivings/Receivings";
+import { ReportsHome } from "@/features/reports/ReportsHome";
+import { ReportPlaceholder } from "@/features/reports/ReportPlaceholder";
 import { LoginScreen } from "@/features/auth/LoginScreen";
 import { isAuthenticated } from "@/lib/auth";
 import { Providers } from "./providers";
 import { ALL_ROUTES } from "./nav";
 
-const BUILT = new Set(["/home", "/sales", "/customers", "/leads", "/family-cards", "/gift-cards", "/coupons", "/services", "/retail-products", "/item-kits", "/suppliers", "/receivings"]);
+const BUILT = new Set(["/home", "/sales", "/customers", "/leads", "/family-cards", "/gift-cards", "/coupons", "/services", "/retail-products", "/item-kits", "/suppliers", "/receivings", "/reports"]);
 
 /** Route guard — unauthenticated users go to /login (preserving intended path). */
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -67,6 +69,8 @@ export default function App() {
             <Route path="/item-kits" element={<ItemKits />} />
             <Route path="/suppliers" element={<Suppliers />} />
             <Route path="/receivings" element={<Receivings />} />
+            <Route path="/reports" element={<ReportsHome />} />
+            <Route path="/reports/:slug" element={<ReportPlaceholder />} />
             {ALL_ROUTES.filter((r) => !BUILT.has(r.path)).map((r) => (
               <Route key={r.path} path={r.path} element={<ModulePage title={r.label} />} />
             ))}

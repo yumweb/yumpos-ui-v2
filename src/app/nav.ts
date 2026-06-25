@@ -9,7 +9,6 @@ import {
   ShoppingCart, CalendarDays, UserPlus,
   Users, CreditCard, Gift, TicketPercent,
   Scissors, ShoppingBag, Boxes, Truck, PackageCheck,
-  BarChart3, UserCheck, FileText,
   MessageCircle, Megaphone, MessagesSquare, Building2, Star, Mail, LifeBuoy,
   UserCog, Clock, Settings, MapPin,
 } from "lucide-react";
@@ -60,15 +59,8 @@ export const NAV: NavGroup[] = [
       { label: "Receivings", path: "/receivings", icon: PackageCheck },
     ],
   },
-  {
-    id: "reports",
-    label: "Reports",
-    items: [
-      { label: "Reports", path: "/reports", icon: BarChart3 },
-      { label: "Customer Retention", path: "/reports/retention", icon: UserCheck },
-      { label: "EOD Report", path: "/eod-report", icon: FileText },
-    ],
-  },
+  // Reports is a direct link; the page itself lists every report as a card by section.
+  { id: "reports", label: "Reports", path: "/reports" },
   {
     id: "engage",
     label: "Engage",
