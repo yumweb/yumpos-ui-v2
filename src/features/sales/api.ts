@@ -245,6 +245,19 @@ export interface NewCustomerInput {
   zip?: string;
   country?: string;
   comments?: string;
+  // Birthdays & Anniversary
+  birthday?: string;
+  anniversary?: string;
+  // Loyalty Management
+  loyaltyCardNumber?: string;
+  loyaltyCardDiscount?: string;
+  currentSpendForPoints?: string;
+  points?: string;
+  // Company and Tax Settings
+  companyAddress?: string;
+  sourceId?: string;
+  dndSms?: boolean;
+  dndEmail?: boolean;
 }
 
 interface CreatedCustomer {
@@ -269,11 +282,34 @@ function personPayload(input: NewCustomerInput) {
   };
 }
 
+/**
+ * Shared loyalty/lead/dnd fields. The API runs ValidationPipe without `transform`,
+ * so @IsNumber() fields must be real numbers — coerce here, never send strings.
+ */
+function commonPayload(input: NewCustomerInput) {
+  const discount = Number(input.loyaltyCardDiscount);
+  return {
+    gender: input.gender,
+    birthday: input.birthday || null,
+    anniversary: input.anniversary || null,
+    points: Number(input.points) || 0,
+    currentSpendForPoints: Number(input.currentSpendForPoints) || 0,
+    sourceId: Number(input.sourceId),
+    dndSms: Boolean(input.dndSms),
+    dndEmail: Boolean(input.dndEmail),
+    ...(input.loyaltyCardNumber?.trim() ? { loyaltyCardNumber: input.loyaltyCardNumber.trim() } : {}),
+    ...(Number.isFinite(discount) && discount > 0 ? { loyaltyCardDiscount: discount } : {}),
+  };
+}
+
 /** PATCH /customers/:id — update payload nests person (per CRA updateData). */
 export function useUpdateCustomer() {
   return useMutation({
     mutationFn: ({ id, input }: { id: number | string; input: NewCustomerInput }) =>
-      api.patch<CreatedCustomer>(`/customers/${id}`, { person: personPayload(input), gender: input.gender }),
+      api.patch<CreatedCustomer>(`/customers/${id}`, {
+        person: personPayload(input),
+        ...commonPayload(input),
+      }),
   });
 }
 
@@ -281,23 +317,10 @@ export function useCreateCustomer() {
   return useMutation({
     mutationFn: (input: NewCustomerInput) => {
       const payload = {
-        firstName: input.firstName.trim(),
-        lastName: input.lastName?.trim() ?? "",
-        ...(input.email?.trim() ? { email: input.email.trim() } : {}),
-        phoneNumber: input.phoneNumber.trim(),
-        gender: input.gender,
-        address1: input.address1?.trim() ?? "",
-        address2: input.address2?.trim() ?? "",
-        city: input.city?.trim() ?? "",
-        state: input.state?.trim() ?? "",
-        zip: input.zip?.trim() ?? "",
-        country: input.country?.trim() ?? "",
-        comments: input.comments?.trim() ?? "",
-        points: 0,
-        currentSpendForPoints: 0,
-        companyAddress: "",
-        dndSms: false,
-        dndEmail: false,
+        ...personPayload(input),
+        ...commonPayload(input),
+        // companyAddress is on the create DTO only (not update / not the entity).
+        companyAddress: input.companyAddress?.trim() ?? "",
       };
       return api.post<CreatedCustomer>("/customers", payload);
     },
