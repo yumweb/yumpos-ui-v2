@@ -40,12 +40,8 @@ export function useCustomers(
       if (name) filters += `&name=${encodeURIComponent(name)}`;
       if (source) filters += `&source=${encodeURIComponent(source)}`;
       if (gender) filters += `&gender=${encodeURIComponent(gender)}`;
-      const res = await api.get<CustomerListResponse>(`/customers/?page=${page}&limit=${limit}${filters}`);
-      // latest created first
-      const customers = [...(res.customers ?? [])].sort(
-        (a, b) => new Date(b.createdDate ?? 0).getTime() - new Date(a.createdDate ?? 0).getTime()
-      );
-      return { ...res, customers };
+      // API already orders newest-first globally (customers.service: ORDER BY createdDate DESC).
+      return api.get<CustomerListResponse>(`/customers/?page=${page}&limit=${limit}${filters}`);
     },
   });
 }
