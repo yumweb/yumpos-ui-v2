@@ -31,6 +31,15 @@ export function getUser<T = Record<string, unknown>>(): T | null {
 /** Authenticated = has a token AND a chosen location (two-step login, as today). */
 export const isAuthenticated = () => Boolean(getToken() && localStorage.getItem(LOCATION));
 
+/**
+ * Admin = corporate user or the super-admin (employeeId 1).
+ * Mirrors the CRA gate (`employeeId === 1`) plus the platform's corporate flag.
+ */
+export function isAdmin(): boolean {
+  const u = getUser<{ employeeId?: number; isCorporate?: boolean }>();
+  return Boolean(u && (u.isCorporate || Number(u.employeeId) === 1));
+}
+
 export const setToken = (t: string) => localStorage.setItem(TOKEN, t);
 
 export function setSession(token: string, location: StoredLocation, userInfo?: unknown) {

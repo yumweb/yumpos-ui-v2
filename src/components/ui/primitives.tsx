@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import { cn } from "@/lib/cn";
 
 /* Button ------------------------------------------------------------------ */
-type ButtonVariant = "default" | "primary" | "accent" | "ghost";
+type ButtonVariant = "default" | "primary" | "accent" | "ghost" | "danger";
 type ButtonSize = "sm" | "md" | "lg";
 
 const btnBase =
@@ -14,6 +14,7 @@ const btnVariants: Record<ButtonVariant, string> = {
   primary: "bg-brand text-brand-fg hover:bg-brand-600",
   accent: "bg-accent text-ink hover:opacity-90",
   ghost: "bg-transparent text-ink-2 hover:bg-surface-2",
+  danger: "bg-danger text-white hover:opacity-90",
 };
 
 const btnSizes: Record<ButtonSize, string> = {
