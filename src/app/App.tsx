@@ -15,12 +15,13 @@ import { Receivings } from "@/features/receivings/Receivings";
 import { ReportsHome } from "@/features/reports/ReportsHome";
 import { ReportPlaceholder } from "@/features/reports/ReportPlaceholder";
 import { Employees } from "@/features/employees/Employees";
+import { Locations } from "@/features/locations/Locations";
 import { LoginScreen } from "@/features/auth/LoginScreen";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticated, isAdmin } from "@/lib/auth";
 import { Providers } from "./providers";
 import { ALL_ROUTES } from "./nav";
 
-const BUILT = new Set(["/home", "/sales", "/customers", "/leads", "/family-cards", "/gift-cards", "/coupons", "/services", "/retail-products", "/item-kits", "/suppliers", "/receivings", "/reports", "/employees"]);
+const BUILT = new Set(["/home", "/sales", "/customers", "/leads", "/family-cards", "/gift-cards", "/coupons", "/services", "/retail-products", "/item-kits", "/suppliers", "/receivings", "/reports", "/employees", "/locations"]);
 
 /** Route guard — unauthenticated users go to /login (preserving intended path). */
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -28,6 +29,12 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated()) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
+  return <>{children}</>;
+}
+
+/** Admin-only route guard — non-admins are sent home. */
+function RequireAdmin({ children }: { children: React.ReactNode }) {
+  if (!isAdmin()) return <Navigate to="/home" replace />;
   return <>{children}</>;
 }
 
@@ -73,6 +80,7 @@ export default function App() {
             <Route path="/reports" element={<ReportsHome />} />
             <Route path="/reports/:slug" element={<ReportPlaceholder />} />
             <Route path="/employees" element={<Employees />} />
+            <Route path="/locations" element={<RequireAdmin><Locations /></RequireAdmin>} />
             {ALL_ROUTES.filter((r) => !BUILT.has(r.path)).map((r) => (
               <Route key={r.path} path={r.path} element={<ModulePage title={r.label} />} />
             ))}

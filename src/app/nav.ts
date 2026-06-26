@@ -10,13 +10,15 @@ import {
   Users, CreditCard, Gift, TicketPercent,
   Scissors, ShoppingBag, Boxes, Truck, PackageCheck,
   MessageCircle, Megaphone, MessagesSquare, Building2, Star, Mail, LifeBuoy,
-  UserCog, Settings, MapPin,
+  UserCog, MapPin,
 } from "lucide-react";
 
 export interface NavLeaf {
   label: string;
   path: string;
   icon?: LucideIcon;
+  /** Only shown to admin users (corporate / super-admin). */
+  adminOnly?: boolean;
 }
 export interface NavGroup {
   id: string;
@@ -80,8 +82,9 @@ export const NAV: NavGroup[] = [
     items: [
       { label: "Employees", path: "/employees", icon: UserCog },
       // Time Clock dropped: replaced by the EOD Report feature.
-      { label: "Store Config", path: "/settings/store", icon: Settings },
-      { label: "Locations", path: "/settings/locations", icon: MapPin },
+      // Store Config dropped: was a non-functional mockup; the real store/tax
+      // config lives on the location entity, edited in Locations.
+      { label: "Locations", path: "/locations", icon: MapPin, adminOnly: true },
     ],
   },
 ];

@@ -6,7 +6,7 @@ import { tenant } from "@/design/tenants";
 import { useTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/primitives";
 import { NAV, type NavGroup } from "@/app/nav";
-import { logout, getLocation } from "@/lib/auth";
+import { logout, getLocation, isAdmin } from "@/lib/auth";
 
 function GroupMenu({
   group,
@@ -21,6 +21,7 @@ function GroupMenu({
   onToggle: () => void;
   onClose: () => void;
 }) {
+  const admin = isAdmin();
   return (
     <div className="relative">
       <button
@@ -35,7 +36,7 @@ function GroupMenu({
       </button>
       {open && (
         <div className="absolute left-0 top-[calc(100%+6px)] z-40 min-w-[200px] overflow-hidden rounded-md border border-border bg-surface p-1.5 shadow-soft">
-          {group.items!.map((it) => {
+          {group.items!.filter((it) => !it.adminOnly || admin).map((it) => {
             const Icon = it.icon;
             return (
               <NavLink
