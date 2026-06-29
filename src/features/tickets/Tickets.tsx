@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Loader2, LogOut } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { isApiConfigured } from "@/lib/apiClient";
 import { DataTable, type Column } from "@/components/DataTable";
@@ -101,8 +101,8 @@ export function Tickets() {
           </button>
         ))}
         <button onClick={() => { setTab("exit"); setPage(1); }}
-          className={cn("flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm font-semibold", tab === "exit" ? "border-brand text-brand" : "border-transparent text-ink-2 hover:text-ink")}>
-          <LogOut className="h-4 w-4" /> Staff Exit
+          className={cn("border-b-2 px-1 pb-2 text-sm font-semibold", tab === "exit" ? "border-brand text-brand" : "border-transparent text-ink-2 hover:text-ink")}>
+          Staff Exit
         </button>
       </div>
 
