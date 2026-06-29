@@ -61,19 +61,21 @@ export function PostsTab() {
       </div>
 
       {/* Composer */}
-      <div className="h-fit rounded-lg border border-border bg-surface p-4">
-        <h3 className="mb-2 text-sm font-bold">New post</h3>
-        <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={5} placeholder="What’s happening at your store?"
-          className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand" />
-        <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-ink-2 hover:bg-surface-2">
-          <ImageIcon className="h-4 w-4" /> {file ? file.name : "Add a photo (optional)"}
-          <input type="file" accept="image/*" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-        </label>
-        {err && <div className="mt-3 rounded-md bg-[var(--danger-soft)] px-3 py-2 text-sm font-medium text-danger">{err}</div>}
-        {ok && <div className="mt-3 rounded-md bg-[var(--ok-soft)] px-3 py-2 text-sm font-medium text-ok">{ok}</div>}
-        <Button variant="primary" className="mt-3 w-full justify-center" onClick={publish} disabled={busy}>
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Publish
-        </Button>
+      <div className="flex h-fit flex-col gap-3">
+        <h3 className="text-sm font-bold">New post</h3>
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={5} placeholder="What’s happening at your store?"
+            className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand" />
+          <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-ink-2 hover:bg-surface-2">
+            <ImageIcon className="h-4 w-4" /> {file ? file.name : "Add a photo (optional)"}
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          </label>
+          {err && <div className="mt-3 rounded-md bg-[var(--danger-soft)] px-3 py-2 text-sm font-medium text-danger">{err}</div>}
+          {ok && <div className="mt-3 rounded-md bg-[var(--ok-soft)] px-3 py-2 text-sm font-medium text-ok">{ok}</div>}
+          <Button variant="primary" className="mt-3 w-full justify-center" onClick={publish} disabled={busy}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Publish
+          </Button>
+        </div>
       </div>
     </div>
   );
