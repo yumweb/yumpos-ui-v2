@@ -28,12 +28,14 @@ import { Campaigns } from "@/features/whatsapp/Campaigns";
 import { CampaignForm } from "@/features/whatsapp/CampaignForm";
 import { CampaignView } from "@/features/whatsapp/CampaignView";
 import { Chat } from "@/features/whatsapp/Chat";
+import { WhatsAppVariables } from "@/features/whatsapp/WhatsAppVariables";
+import { TemplateBuilder } from "@/features/whatsapp/TemplateBuilder";
 import { LoginScreen } from "@/features/auth/LoginScreen";
 import { isAuthenticated, isAdmin } from "@/lib/auth";
 import { Providers } from "./providers";
 import { ALL_ROUTES } from "./nav";
 
-const BUILT = new Set(["/home", "/sales", "/customers", "/leads", "/family-cards", "/gift-cards", "/coupons", "/services", "/retail-products", "/item-kits", "/suppliers", "/receivings", "/reports", "/employees", "/locations", "/appointments", "/tickets", "/reviews", "/google-business", "/whatsapp", "/whatsapp/campaigns", "/whatsapp/chat", "/best-practices"]);
+const BUILT = new Set(["/home", "/sales", "/customers", "/leads", "/family-cards", "/gift-cards", "/coupons", "/services", "/retail-products", "/item-kits", "/suppliers", "/receivings", "/reports", "/employees", "/locations", "/appointments", "/tickets", "/reviews", "/google-business", "/whatsapp", "/whatsapp/campaigns", "/whatsapp/chat", "/whatsapp/variables", "/best-practices"]);
 
 /** Route guard — unauthenticated users go to /login (preserving intended path). */
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -103,6 +105,9 @@ export default function App() {
             <Route path="/whatsapp/campaigns/edit/:campaignId" element={<CampaignForm />} />
             <Route path="/whatsapp/campaigns/view/:campaignId" element={<CampaignView />} />
             <Route path="/whatsapp/chat" element={<Chat />} />
+            <Route path="/whatsapp/variables" element={<WhatsAppVariables />} />
+            <Route path="/whatsapp/templates/create" element={<TemplateBuilder />} />
+            <Route path="/whatsapp/templates/edit/:templateName" element={<TemplateBuilder />} />
             <Route path="/best-practices" element={<BestPractices />} />
             <Route path="/best-practices/:docId" element={<DocumentView />} />
             <Route path="/locations" element={<RequireAdmin><Locations /></RequireAdmin>} />

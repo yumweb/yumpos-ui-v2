@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, RotateCw, ChevronDown, ChevronUp, Trash2, Loader2, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { RefreshCw, RotateCw, ChevronDown, ChevronUp, Trash2, Loader2, CheckCircle2, Clock, XCircle, Plus, Pencil } from "lucide-react";
 import { Card, Button, Badge, type BadgeTone } from "@/components/ui/primitives";
 import { Modal } from "@/components/Modal";
 import { getLocation } from "@/lib/auth";
@@ -62,6 +63,7 @@ function Section({ title, desc, children }: { title: string; desc?: string; chil
 
 function MessageTemplates() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { data: templates = [], isLoading, isError, refetch } = useWaTemplates();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [toDelete, setToDelete] = useState<WaTemplate | null>(null);
@@ -90,7 +92,10 @@ function MessageTemplates() {
     <div>
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm text-ink-2">{templates.length} template{templates.length !== 1 ? "s" : ""}</span>
-        <Button variant="default" size="sm" onClick={() => refetch()}><RefreshCw className="h-4 w-4" /> Refresh</Button>
+        <div className="flex gap-2">
+          <Button variant="default" size="sm" onClick={() => refetch()}><RefreshCw className="h-4 w-4" /> Refresh</Button>
+          <Button variant="primary" size="sm" onClick={() => navigate("/whatsapp/templates/create")}><Plus className="h-4 w-4" /> Create template</Button>
+        </div>
       </div>
       {isLoading ? (
         <Empty>Loading templates…</Empty>
@@ -123,7 +128,12 @@ function MessageTemplates() {
                       <td className="px-3 py-2">{qualityChip(t.quality_score)}</td>
                       <td className="px-3 py-2 text-right tnum">{t.sent_total ?? 0}</td>
                       <td className="px-3 py-2 text-right tnum">{t.delivered_total ?? 0}</td>
-                      <td className="px-3 py-2"><button onClick={() => setToDelete(t)} aria-label="Delete" className="text-ink-3 hover:text-danger"><Trash2 className="h-4 w-4" /></button></td>
+                      <td className="px-3 py-2">
+                        <div className="flex gap-1">
+                          <button onClick={() => navigate(`/whatsapp/templates/edit/${encodeURIComponent(t.name)}`)} aria-label="Edit" className="text-ink-3 hover:text-brand"><Pencil className="h-4 w-4" /></button>
+                          <button onClick={() => setToDelete(t)} aria-label="Delete" className="text-ink-3 hover:text-danger"><Trash2 className="h-4 w-4" /></button>
+                        </div>
+                      </td>
                     </tr>
                     {open && (
                       <tr className="border-t border-border bg-surface-2">

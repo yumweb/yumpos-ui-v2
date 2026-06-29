@@ -60,7 +60,7 @@ export interface WaTemplate {
   quality_score?: string | { score?: string };
   sent_total?: number;
   delivered_total?: number;
-  components?: Array<{ type: string; format?: string; text?: string; example?: { header_text?: string[]; body_text?: string[][] }; buttons?: Array<{ text: string }> }>;
+  components?: Array<{ type: string; format?: string; text?: string; example?: { header_text?: string[]; body_text?: string[][] }; buttons?: Array<{ type: "QUICK_REPLY" | "URL" | "PHONE_NUMBER"; text: string; url?: string; phone_number?: string; example?: string[] }> }>;
   header_media_url?: string;
   header_media_type?: string;
 }
@@ -105,16 +105,75 @@ export const setActiveTemplate = (mappingId: number) => putD(`/locations/${loc()
 
 /* ───────────────────────── Merge variables (catalog) ───────────────────────── */
 
-export interface WaVariable { id: number; varKey: string; label: string; sample?: string; source?: string }
+export interface WaVariable { id: number; varKey: string; label: string; sample?: string; source?: string; isActive?: boolean; sortOrder?: number }
+export interface UpsertVariable { varKey: string; label: string; sample?: string; source: string; isActive: boolean; sortOrder: number }
+
+export const VARIABLE_SOURCES = [
+  { value: "CUSTOMER_FIRST_NAME", label: "Customer first name" },
+  { value: "CUSTOMER_FULL_NAME", label: "Customer full name" },
+  { value: "CUSTOMER_PHONE", label: "Customer phone" },
+  { value: "LOCATION_NAME", label: "Location / salon name" },
+] as const;
+
+const unwrapVars = (r: { data?: WaVariable[] } | WaVariable[]) => (Array.isArray(r) ? r : r.data ?? []);
+
 export function useWaVariables(enabled = true) {
   return useQuery({
     queryKey: ["wa-variables"],
     enabled: isApiConfigured() && enabled,
-    queryFn: async () => {
-      const r = await api.get<{ data?: WaVariable[] } | WaVariable[]>(`/whatsapp/variables?activeOnly=true`);
-      return Array.isArray(r) ? r : r.data ?? [];
-    },
+    queryFn: async () => unwrapVars(await api.get<{ data?: WaVariable[] } | WaVariable[]>(`/whatsapp/variables?activeOnly=true`)),
   });
+}
+/** All variables (active + inactive) — for the corporate management page. */
+export function useAllWaVariables(enabled = true) {
+  return useQuery({
+    queryKey: ["wa-variables-all"],
+    enabled: isApiConfigured() && enabled,
+    queryFn: async () => unwrapVars(await api.get<{ data?: WaVariable[] } | WaVariable[]>(`/whatsapp/variables?activeOnly=false`)),
+  });
+}
+export const createWaVariable = (body: UpsertVariable) => api.post<{ id?: number; message?: string }>(`/whatsapp/variables`, body);
+export const updateWaVariable = (id: number, body: UpsertVariable) => api.put<{ id?: number; message?: string }>(`/whatsapp/variables/${id}`, body);
+export const deleteWaVariable = (id: number) => api.delete(`/whatsapp/variables/${id}`);
+
+/* ───────────────────────── Template builder (create / edit) ───────────────────────── */
+
+export type TemplateCategory = "MARKETING" | "UTILITY" | "AUTHENTICATION";
+export type HeaderFormat = "TEXT" | "IMAGE" | "VIDEO" | "DOCUMENT";
+export interface TemplateButton { type: "QUICK_REPLY" | "URL" | "PHONE_NUMBER"; text: string; url?: string; phone_number?: string; example?: string[] }
+export interface TemplateComponent {
+  type: "HEADER" | "BODY" | "FOOTER" | "BUTTONS";
+  format?: HeaderFormat;
+  text?: string;
+  example?: { header_text?: string[]; body_text?: string[][] };
+  buttons?: TemplateButton[];
+}
+export interface CreateTemplate { name: string; language: string; category: TemplateCategory; components: TemplateComponent[] }
+
+export const getTemplateByName = (name: string) => getD<WaTemplate | WaTemplate[]>(`/locations/${loc()}/whatsapp/templates/${encodeURIComponent(name)}`);
+export const createTemplate = (body: CreateTemplate) => postD(`/locations/${loc()}/whatsapp/templates`, body);
+export const updateTemplate = (templateId: string, body: { components: TemplateComponent[] }) => putD(`/locations/${loc()}/whatsapp/templates/${encodeURIComponent(templateId)}`, body);
+
+/** Create a template whose HEADER is an uploaded media file — multipart/form-data. */
+export async function createTemplateWithMedia(fields: { name: string; language: string; category: TemplateCategory; components: TemplateComponent[] }, file: File) {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("name", fields.name);
+  fd.append("language", fields.language);
+  fd.append("category", fields.category);
+  fd.append("components", JSON.stringify(fields.components));
+  const res = await fetch(`${import.meta.env.VITE_API_URL ?? ""}/locations/${loc()}/whatsapp/templates/with-media`, {
+    method: "POST",
+    headers: {
+      "x-api-key": import.meta.env.VITE_API_KEY ?? "",
+      authorization: `Bearer ${localStorage.getItem("yumpos_token") ?? ""}`,
+      accept: "application/json",
+    },
+    body: fd,
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) throw new Error(json?.error || json?.message || `Upload failed (${res.status})`);
+  return json;
 }
 
 /* ───────────────────────── Campaigns ───────────────────────── */
