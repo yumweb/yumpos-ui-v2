@@ -9,7 +9,7 @@ import {
   ShoppingCart, CalendarDays, UserPlus,
   Users, CreditCard, Gift, TicketPercent,
   Scissors, ShoppingBag, Boxes, Truck, PackageCheck,
-  MessageCircle, Megaphone, MessagesSquare, Building2, Star, Mail, LifeBuoy,
+  MessageCircle, Megaphone, MessagesSquare, Building2, Star, LifeBuoy,
   UserCog, MapPin,
 } from "lucide-react";
 
@@ -72,7 +72,7 @@ export const NAV: NavGroup[] = [
       { label: "WA Chat", path: "/whatsapp/chat", icon: MessagesSquare },
       { label: "Google Business", path: "/google-business", icon: Building2 },
       { label: "Reviews", path: "/reviews", icon: Star },
-      { label: "Messages", path: "/messages", icon: Mail },
+      // Messages dropped.
       { label: "Tickets", path: "/tickets", icon: LifeBuoy },
     ],
   },
