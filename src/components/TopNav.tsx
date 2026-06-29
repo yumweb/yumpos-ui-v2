@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { ChevronDown, MapPin, Plus, Bell, LogOut, User } from "lucide-react";
+import { ChevronDown, Plus, Bell, LogOut, User } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { tenant } from "@/design/tenants";
 import { useTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/primitives";
+import { LocationSwitcher } from "@/components/LocationSwitcher";
 import { NAV, type NavGroup } from "@/app/nav";
-import { logout, getLocation, isAdmin } from "@/lib/auth";
+import { logout, isAdmin } from "@/lib/auth";
 
 function GroupMenu({
   group,
@@ -69,7 +70,6 @@ export function TopNav() {
   const [acctOpen, setAcctOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
   const acctRef = useRef<HTMLDivElement>(null);
-  const location = getLocation();
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
@@ -124,10 +124,8 @@ export function TopNav() {
         )}
       </nav>
 
-      <div className="hidden items-center gap-2 rounded-full border border-border px-3 py-2 text-sm font-semibold xl:inline-flex">
-        <MapPin className="h-4 w-4" />
-        {location?.locationName ?? location?.name ?? "Location"}
-        <ChevronDown className="h-4 w-4 text-ink-3" />
+      <div className="hidden xl:block">
+        <LocationSwitcher />
       </div>
 
       <Button variant="primary" className="whitespace-nowrap" onClick={() => navigate("/sales")}>
