@@ -46,6 +46,8 @@ export function setSession(token: string, location: StoredLocation, userInfo?: u
   setToken(token);
   localStorage.setItem(LOCATION, JSON.stringify(location));
   if (userInfo) localStorage.setItem(USER, JSON.stringify(userInfo));
+  // Re-arm the one-per-login announcement modal.
+  localStorage.removeItem("yumpos_announcement_seen");
 }
 
 export function logout() {

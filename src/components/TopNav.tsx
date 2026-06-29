@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/primitives";
 import { LocationSwitcher } from "@/components/LocationSwitcher";
 import { NAV, type NavGroup } from "@/app/nav";
 import { logout, isAdmin } from "@/lib/auth";
+import { useSubscription } from "@/features/home/api";
 
 function GroupMenu({
   group,
@@ -152,7 +153,8 @@ export function TopNav() {
           <User className="h-[18px] w-[18px]" />
         </button>
         {acctOpen && (
-          <div className="absolute right-0 top-[calc(100%+8px)] z-40 min-w-[180px] rounded-md border border-border bg-surface p-1.5 shadow-soft">
+          <div className="absolute right-0 top-[calc(100%+8px)] z-40 min-w-[240px] rounded-md border border-border bg-surface p-1.5 shadow-soft">
+            <SubscriptionLine />
             <button
               onClick={logout}
               className="flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
@@ -163,5 +165,21 @@ export function TopNav() {
         )}
       </div>
     </header>
+  );
+}
+
+/** Subscription validity shown above Sign out — healthy state lives here, not in a banner. */
+function SubscriptionLine() {
+  const sub = useSubscription();
+  if (!sub.formatted) return null;
+  const tone = sub.expired ? "text-danger" : sub.expiringSoon ? "text-warn" : "text-ink-2";
+  const label = sub.expired
+    ? `Subscription expired on ${sub.formatted}`
+    : `Your subscription is valid until ${sub.formatted}`;
+  return (
+    <>
+      <div className={cn("px-3 py-2 text-xs font-medium", tone)}>{label}</div>
+      <div className="mx-1 mb-1 border-t border-border" />
+    </>
   );
 }
