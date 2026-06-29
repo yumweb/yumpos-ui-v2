@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Eye, EyeOff, MapPin, ChevronRight } from "lucide-react";
+import { Loader2, Eye, EyeOff, MapPin, ChevronRight, Search } from "lucide-react";
 import { tenant } from "@/design/tenants";
 import { isApiConfigured, ApiError } from "@/lib/apiClient";
 import { isAuthenticated, setToken, setSession, type StoredLocation } from "@/lib/auth";
@@ -16,8 +16,12 @@ export function LoginScreen() {
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [locations, setLocations] = useState<StoredLocation[]>([]);
+  const [locQuery, setLocQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  const locName = (l: StoredLocation) => l.locationName ?? l.name ?? `Location ${l.locationId}`;
+  const filteredLocations = locations.filter((l) => locName(l).toLowerCase().includes(locQuery.trim().toLowerCase()));
 
   useEffect(() => {
     if (isAuthenticated()) navigate("/home", { replace: true });
@@ -125,20 +129,41 @@ export function LoginScreen() {
               </Button>
             </form>
           ) : (
-            <div className="flex flex-col gap-2">
-              {locations.length === 0 && <p className="text-sm text-ink-3">No locations available for this account.</p>}
-              {locations.map((loc) => (
-                <button
-                  key={String(loc.locationId)}
-                  onClick={() => chooseLocation(loc)}
-                  disabled={busy}
-                  className="flex items-center gap-3 rounded-md border border-border bg-surface-2 px-4 py-3 text-left transition-colors hover:border-brand disabled:opacity-60"
-                >
-                  <MapPin className="h-4 w-4 text-brand" />
-                  <span className="flex-1 text-sm font-semibold">{loc.locationName ?? loc.name ?? `Location ${loc.locationId}`}</span>
-                  <ChevronRight className="h-4 w-4 text-ink-3" />
-                </button>
-              ))}
+            <div className="flex flex-col gap-3">
+              {locations.length === 0 ? (
+                <p className="text-sm text-ink-3">No locations available for this account.</p>
+              ) : (
+                <>
+                  <div className="flex h-11 items-center gap-2 rounded-md border border-border bg-surface-2 px-3 focus-within:border-brand">
+                    <Search className="h-4 w-4 text-ink-3" />
+                    <input
+                      value={locQuery}
+                      onChange={(e) => setLocQuery(e.target.value)}
+                      autoFocus
+                      placeholder="Search locations…"
+                      className="w-full bg-transparent text-sm outline-none placeholder:text-ink-3"
+                    />
+                  </div>
+                  <div className="flex max-h-[52vh] flex-col gap-2 overflow-y-auto pr-1">
+                    {filteredLocations.length === 0 ? (
+                      <p className="px-1 py-2 text-sm text-ink-3">No locations match “{locQuery}”.</p>
+                    ) : (
+                      filteredLocations.map((loc) => (
+                        <button
+                          key={String(loc.locationId)}
+                          onClick={() => chooseLocation(loc)}
+                          disabled={busy}
+                          className="flex items-center gap-3 rounded-md border border-border bg-surface-2 px-4 py-3 text-left transition-colors hover:border-brand disabled:opacity-60"
+                        >
+                          <MapPin className="h-4 w-4 shrink-0 text-brand" />
+                          <span className="flex-1 text-sm font-semibold">{locName(loc)}</span>
+                          <ChevronRight className="h-4 w-4 shrink-0 text-ink-3" />
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
