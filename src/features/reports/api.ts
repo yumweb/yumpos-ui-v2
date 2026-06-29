@@ -162,8 +162,8 @@ export const getCustomerEvents = (event: 1 | 2, day: string, month: string, offs
   legacy<LegacyWeb<CustomerEventRow>>("CustomerEvents", { locationId: [locId()], event, day, month, offset, csvExport: 0 });
 
 export interface LegacyCustomerSaleRow {
-  sale_location_id: string; sale_time: string; customer_name: string; customer_phone: string;
-  gender: string; total_visits: number; customer_type: string; total: number; payment_type: string;
+  sale_location_id: string; sale_time: string; customer_name: string; phone_number: string;
+  gender: string; total_visits: number; customer_type: string; source: string; total: number; payment_type: string;
 }
 export const getCustomerSales = (from: string, to: string, offset = 0) =>
   legacy<LegacyWeb<LegacyCustomerSaleRow>>("CustomerReportDetail", { customerId: -1, locationId: [locId()], dateFrom: from, dateTo: to, csvExport: 0, offset, itemId: [0], sourceId: [0] }, "v1");

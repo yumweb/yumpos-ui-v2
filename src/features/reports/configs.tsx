@@ -200,10 +200,11 @@ const customersDetailed = def<A.LegacyCustomerSaleRow>({
     col("Sale", (r) => <span className="font-mono text-xs">#{r.sale_location_id}</span>),
     col("Date", (r) => fmtDateTime(r.sale_time)),
     col("Customer", (r) => r.customer_name || "-"),
-    col("Phone", (r) => <span className="font-mono text-xs">{r.customer_phone}</span>),
+    col("Phone", (r) => <span className="font-mono text-xs">{r.phone_number || "-"}</span>),
     col("Gender", (r) => r.gender || "-"),
     col("Visits", (r) => r.total_visits, "right"),
     col("Type", (r) => r.customer_type || "-"),
+    col("Source", (r) => r.source || "-"),
     col("Total", (r) => fmtMoney(r.total), "right"),
   ],
   run: async (v) => {
