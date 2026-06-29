@@ -30,8 +30,8 @@ function Seg({ active, onClick, children }: { active: boolean; onClick: () => vo
 }
 
 export function Tickets() {
-  const [tab, setTab] = useState<"ops" | "exit">("ops");
-  const [type, setType] = useState<1 | 2>(1);
+  const [tab, setTab] = useState<"staffing" | "training" | "exit">("staffing");
+  const type: 1 | 2 = tab === "training" ? 2 : 1;
   const [closed, setClosed] = useState(false);
   const [page, setPage] = useState(1);
   const [newOpen, setNewOpen] = useState(false);
@@ -87,18 +87,20 @@ export function Tickets() {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-[25px] font-bold tracking-tight">Tickets</h1>
         <div className="flex-1" />
-        {tab === "ops" && (
+        {tab !== "exit" && (
           <Button variant="primary" onClick={() => setNewOpen(true)}><Plus className="h-4 w-4" /> New Ticket</Button>
         )}
       </div>
 
-      {/* System tabs */}
-      <div className="flex items-center gap-2 border-b border-border">
-        <button onClick={() => setTab("ops")}
-          className={cn("border-b-2 px-1 pb-2 text-sm font-semibold", tab === "ops" ? "border-brand text-brand" : "border-transparent text-ink-2 hover:text-ink")}>
-          Operational
-        </button>
-        <button onClick={() => setTab("exit")}
+      {/* Type tabs */}
+      <div className="flex items-center gap-4 border-b border-border">
+        {([["staffing", "Staffing"], ["training", "Training"]] as const).map(([id, label]) => (
+          <button key={id} onClick={() => { setTab(id); setPage(1); }}
+            className={cn("border-b-2 px-1 pb-2 text-sm font-semibold", tab === id ? "border-brand text-brand" : "border-transparent text-ink-2 hover:text-ink")}>
+            {label}
+          </button>
+        ))}
+        <button onClick={() => { setTab("exit"); setPage(1); }}
           className={cn("flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm font-semibold", tab === "exit" ? "border-brand text-brand" : "border-transparent text-ink-2 hover:text-ink")}>
           <LogOut className="h-4 w-4" /> Staff Exit
         </button>
@@ -108,15 +110,9 @@ export function Tickets() {
         <ExitTickets />
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center rounded-md border border-border bg-surface p-0.5">
-              <Seg active={type === 1} onClick={() => { setType(1); setPage(1); }}>Staffing</Seg>
-              <Seg active={type === 2} onClick={() => { setType(2); setPage(1); }}>Training</Seg>
-            </div>
-            <div className="flex items-center rounded-md border border-border bg-surface p-0.5">
-              <Seg active={!closed} onClick={() => { setClosed(false); setPage(1); }}>Open</Seg>
-              <Seg active={closed} onClick={() => { setClosed(true); setPage(1); }}>Closed</Seg>
-            </div>
+          <div className="flex items-center rounded-md border border-border bg-surface p-0.5 w-fit">
+            <Seg active={!closed} onClick={() => { setClosed(false); setPage(1); }}>Open</Seg>
+            <Seg active={closed} onClick={() => { setClosed(true); setPage(1); }}>Closed</Seg>
           </div>
 
           <DataTable
@@ -135,7 +131,7 @@ export function Tickets() {
         </>
       )}
 
-      <NewTicketModal open={newOpen} onClose={() => setNewOpen(false)} onCreated={() => { refresh(); qc.invalidateQueries({ queryKey: ["exit-tickets"] }); }} />
+      <NewTicketModal open={newOpen} initialTab={tab === "training" ? "training" : "staffing"} onClose={() => setNewOpen(false)} onCreated={() => { refresh(); qc.invalidateQueries({ queryKey: ["exit-tickets"] }); }} />
       <TicketDetailModal ticketId={viewId} onClose={() => setViewId(null)} onChanged={refresh} />
 
       {/* OTP close */}
