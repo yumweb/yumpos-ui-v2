@@ -10,7 +10,7 @@ import {
   Users, CreditCard, Gift, TicketPercent,
   Scissors, ShoppingBag, Boxes, Truck, PackageCheck,
   MessageCircle, Megaphone, MessagesSquare, Building2, Star, LifeBuoy,
-  UserCog, MapPin,
+  UserCog, MapPin, BookOpen,
 } from "lucide-react";
 
 export interface NavLeaf {
@@ -81,6 +81,7 @@ export const NAV: NavGroup[] = [
     label: "More",
     items: [
       { label: "Employees", path: "/employees", icon: UserCog },
+      { label: "Best Practices", path: "/best-practices", icon: BookOpen },
       // Time Clock dropped: replaced by the EOD Report feature.
       // Store Config dropped: was a non-functional mockup; the real store/tax
       // config lives on the location entity, edited in Locations.

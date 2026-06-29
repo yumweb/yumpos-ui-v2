@@ -21,6 +21,8 @@ import { Tickets } from "@/features/tickets/Tickets";
 import { Reviews } from "@/features/reviews/Reviews";
 import { GoogleBusiness } from "@/features/gmb/GoogleBusiness";
 import { GmbCallback } from "@/features/gmb/GmbCallback";
+import { BestPractices } from "@/features/bestPractices/BestPractices";
+import { DocumentView } from "@/features/bestPractices/DocumentView";
 import { WhatsApp } from "@/features/whatsapp/WhatsApp";
 import { Campaigns } from "@/features/whatsapp/Campaigns";
 import { CampaignForm } from "@/features/whatsapp/CampaignForm";
@@ -31,7 +33,7 @@ import { isAuthenticated, isAdmin } from "@/lib/auth";
 import { Providers } from "./providers";
 import { ALL_ROUTES } from "./nav";
 
-const BUILT = new Set(["/home", "/sales", "/customers", "/leads", "/family-cards", "/gift-cards", "/coupons", "/services", "/retail-products", "/item-kits", "/suppliers", "/receivings", "/reports", "/employees", "/locations", "/appointments", "/tickets", "/reviews", "/google-business", "/whatsapp", "/whatsapp/campaigns", "/whatsapp/chat"]);
+const BUILT = new Set(["/home", "/sales", "/customers", "/leads", "/family-cards", "/gift-cards", "/coupons", "/services", "/retail-products", "/item-kits", "/suppliers", "/receivings", "/reports", "/employees", "/locations", "/appointments", "/tickets", "/reviews", "/google-business", "/whatsapp", "/whatsapp/campaigns", "/whatsapp/chat", "/best-practices"]);
 
 /** Route guard — unauthenticated users go to /login (preserving intended path). */
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -101,6 +103,8 @@ export default function App() {
             <Route path="/whatsapp/campaigns/edit/:campaignId" element={<CampaignForm />} />
             <Route path="/whatsapp/campaigns/view/:campaignId" element={<CampaignView />} />
             <Route path="/whatsapp/chat" element={<Chat />} />
+            <Route path="/best-practices" element={<BestPractices />} />
+            <Route path="/best-practices/:docId" element={<DocumentView />} />
             <Route path="/locations" element={<RequireAdmin><Locations /></RequireAdmin>} />
             {ALL_ROUTES.filter((r) => !BUILT.has(r.path)).map((r) => (
               <Route key={r.path} path={r.path} element={<ModulePage title={r.label} />} />
