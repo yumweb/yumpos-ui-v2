@@ -2,12 +2,13 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { isApiConfigured } from "@/lib/apiClient";
-import { Card, Button } from "@/components/ui/primitives";
+import { Button } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/DataTable";
 import { useEmployees } from "@/features/employees/api";
 import { getEmployeeReport } from "../api";
 import { startOfDay, endOfDay, fmtMoney } from "../dates";
 import { downloadCsv } from "../csv";
+import { StatStrip } from "../StatStrip";
 import type { ParamValues, DateRange } from "../types";
 
 interface Row { employeeId: number; name: string; services: number; products: number; redemptions: number; net: number }
@@ -52,12 +53,12 @@ export function EmployeeDetailedBody({ values }: { values: ParamValues }) {
   return (
     <div className="flex flex-col gap-4">
       {d && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Tile label="Service sales" value={fmtMoney(d.overallGrossTotalServices)} />
-          <Tile label="Product sales" value={fmtMoney(d.overallGrossTotalProducts)} />
-          <Tile label="Redemptions" value={fmtMoney(d.overallTotalRedemptions)} />
-          <Tile label="Net total" value={fmtMoney(d.overallGrossTotalServices + d.overallGrossTotalProducts - d.overallTotalRedemptions)} />
-        </div>
+        <StatStrip stats={[
+          { label: "Service sales", value: fmtMoney(d.overallGrossTotalServices) },
+          { label: "Product sales", value: fmtMoney(d.overallGrossTotalProducts) },
+          { label: "Redemptions", value: fmtMoney(d.overallTotalRedemptions) },
+          { label: "Net total", value: fmtMoney(d.overallGrossTotalServices + d.overallGrossTotalProducts - d.overallTotalRedemptions) },
+        ]} />
       )}
       <div className="flex items-center justify-between">
         <span className="text-sm text-ink-2">{q.isLoading ? "Loading…" : `${rows.length} employee${rows.length === 1 ? "" : "s"}`}</span>
@@ -66,8 +67,4 @@ export function EmployeeDetailedBody({ values }: { values: ParamValues }) {
       <DataTable columns={columns} rows={rows} getRowId={(r) => String(r.employeeId)} configured loading={q.isLoading} error={q.isError} page={1} maxPage={1} count={rows.length} onPage={() => {}} emptyText="No employee sales for the selected period." countNoun="employees" />
     </div>
   );
-}
-
-function Tile({ label, value }: { label: string; value: string }) {
-  return <Card className="p-3"><div className="text-lg font-bold tnum">{value}</div><div className="mt-0.5 text-xs text-ink-3">{label}</div></Card>;
 }

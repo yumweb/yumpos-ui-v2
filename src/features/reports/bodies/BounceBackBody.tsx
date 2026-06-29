@@ -2,10 +2,11 @@ import { useState } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { cn } from "@/lib/cn";
 import { isApiConfigured } from "@/lib/apiClient";
-import { Card, Badge, type BadgeTone } from "@/components/ui/primitives";
+import { Badge, type BadgeTone } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/DataTable";
 import { getBounceBackSummary, getBounceBackIssuance, getBounceBackRedemption, type BounceBackRow } from "../api";
 import { fmtMoney, fmtDateTime, fmtDate } from "../dates";
+import { StatStrip } from "../StatStrip";
 import type { ParamValues, DateRange } from "../types";
 
 const LIMIT = 20;
@@ -45,14 +46,14 @@ export function BounceBackBody({ values }: { values: ParamValues }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Tile label="Issued" value={s ? String(s.totalIssued) : "—"} />
-        <Tile label="Redeemed" value={s ? String(s.totalRedeemed) : "—"} tone="ok" />
-        <Tile label="Expired" value={s ? String(s.totalExpired) : "—"} tone="danger" />
-        <Tile label="Redemption rate" value={s ? `${s.redemptionRate.toFixed(1)}%` : "—"} />
-        <Tile label="Discount value" value={s ? fmtMoney(s.totalDiscountValue) : "—"} />
-        <Tile label="Avg days to redeem" value={s?.avgDaysToRedemption != null ? s.avgDaysToRedemption.toFixed(1) : "—"} />
-      </div>
+      <StatStrip stats={[
+        { label: "Issued", value: s ? String(s.totalIssued) : "—" },
+        { label: "Redeemed", value: s ? String(s.totalRedeemed) : "—", tone: "ok" },
+        { label: "Expired", value: s ? String(s.totalExpired) : "—", tone: "danger" },
+        { label: "Redemption rate", value: s ? `${s.redemptionRate.toFixed(1)}%` : "—" },
+        { label: "Discount value", value: s ? fmtMoney(s.totalDiscountValue) : "—" },
+        { label: "Avg days to redeem", value: s?.avgDaysToRedemption != null ? s.avgDaysToRedemption.toFixed(1) : "—" },
+      ]} />
 
       <div className="flex gap-1 rounded-lg border border-border bg-surface p-1 w-fit">
         {([["issuance", "Issuance"], ["redemption", "Redemption"]] as const).map(([id, label]) => (
@@ -66,8 +67,4 @@ export function BounceBackBody({ values }: { values: ParamValues }) {
         emptyText={isIssuance ? "No coupons issued in this period." : "No redemptions in this period."} countNoun="coupons" />
     </div>
   );
-}
-
-function Tile({ label, value, tone }: { label: string; value: string; tone?: "ok" | "danger" }) {
-  return <Card className="p-3"><div className={cn("text-lg font-bold tnum", tone === "ok" && "text-ok", tone === "danger" && "text-danger")}>{value}</div><div className="mt-0.5 text-xs text-ink-3">{label}</div></Card>;
 }

@@ -6,6 +6,7 @@ import { Card, Badge, type BadgeTone } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/DataTable";
 import { getFirstVisit, getFirstVisitSummary, getFirstVisitDaily, type FirstVisitRow } from "../api";
 import { fmtMoney, fmtDateTime } from "../dates";
+import { StatStrip } from "../StatStrip";
 import type { ParamValues, DateRange } from "../types";
 
 const LIMIT = 20;
@@ -34,12 +35,12 @@ export function FirstVisitBody({ values }: { values: ParamValues }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile label="First visits" value={s ? String(s.totalFirstVisits) : "—"} />
-        <Tile label="Bounce-back issued" value={s ? String(s.bounceBackIssuedCount) : "—"} />
-        <Tile label="Not issued" value={s ? String(s.bounceBackNotIssuedCount) : "—"} />
-        <Tile label="Issuance rate" value={s ? `${s.issuanceRate.toFixed(1)}%` : "—"} tone="ok" />
-      </div>
+      <StatStrip stats={[
+        { label: "First visits", value: s ? String(s.totalFirstVisits) : "—" },
+        { label: "Bounce-back issued", value: s ? String(s.bounceBackIssuedCount) : "—" },
+        { label: "Not issued", value: s ? String(s.bounceBackNotIssuedCount) : "—" },
+        { label: "Issuance rate", value: s ? `${s.issuanceRate.toFixed(1)}%` : "—", tone: "ok" },
+      ]} />
 
       {(daily.data?.length ?? 0) > 0 && (
         <Card className="p-4">
@@ -61,8 +62,4 @@ export function FirstVisitBody({ values }: { values: ParamValues }) {
         page={page} maxPage={Math.max(1, Math.ceil(total / LIMIT))} count={total} onPage={setPage} emptyText="No first visits in this period." countNoun="first visits" />
     </div>
   );
-}
-
-function Tile({ label, value, tone }: { label: string; value: string; tone?: "ok" }) {
-  return <Card className="p-3"><div className={`text-xl font-bold tnum ${tone === "ok" ? "text-ok" : ""}`}>{value}</div><div className="mt-0.5 text-xs text-ink-3">{label}</div></Card>;
 }

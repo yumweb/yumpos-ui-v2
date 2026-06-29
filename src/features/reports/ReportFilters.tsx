@@ -20,21 +20,20 @@ export function ReportFilters({
 }) {
   if (params.length === 0) return null;
   return (
-    <Card className="p-4">
-      <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
+    <Card className="p-3">
+      <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
         {params.map((p) => (
-          <div key={p.key} className="min-w-[180px]">
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-3">{p.label}</label>
+          <div key={p.key}>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-ink-3">{p.label}</label>
             <Control p={p} value={values[p.key]} onChange={(v) => onChange(p.key, v)} />
-            {p.help && <p className="mt-1 text-xs text-ink-3">{p.help}</p>}
           </div>
         ))}
-      </div>
-      <div className="mt-4 flex items-center gap-2 border-t border-border pt-4">
-        <Button variant="primary" onClick={onRun} disabled={running}>
-          {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />} Run report
-        </Button>
-        {dirty && <Button variant="ghost" onClick={onReset}><RotateCcw className="h-4 w-4" /> Reset</Button>}
+        <div className="ml-auto flex items-center gap-2">
+          {dirty && <Button variant="ghost" size="sm" onClick={onReset}><RotateCcw className="h-4 w-4" /> Reset</Button>}
+          <Button variant="primary" size="sm" onClick={onRun} disabled={running}>
+            {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />} Run report
+          </Button>
+        </div>
       </div>
     </Card>
   );
@@ -62,20 +61,16 @@ function DateRangeControl({ value, onChange }: { value?: DateRange; onChange: (v
   const v = value ?? { from: "", to: "" };
   const activePreset = DATE_PRESETS.find((p) => { const r = p.range(); return r.from === v.from && r.to === v.to; });
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-1.5">
-        {DATE_PRESETS.map((p) => (
-          <button key={p.key} type="button" onClick={() => onChange(p.range())}
-            className={cn("rounded-full border px-2.5 py-1 text-xs font-semibold", activePreset?.key === p.key ? "border-brand bg-brand-100 text-brand" : "border-border text-ink-2 hover:bg-surface-2")}>
-            {p.label}
-          </button>
-        ))}
-      </div>
-      <div className="flex items-center gap-2">
-        <input type="date" value={v.from} onChange={(e) => onChange({ ...v, from: e.target.value })} className={`${fieldCls} max-w-[160px]`} />
-        <span className="text-ink-3">to</span>
-        <input type="date" value={v.to} onChange={(e) => onChange({ ...v, to: e.target.value })} className={`${fieldCls} max-w-[160px]`} />
-      </div>
+    <div className="flex flex-wrap items-center gap-1.5">
+      {DATE_PRESETS.map((p) => (
+        <button key={p.key} type="button" onClick={() => onChange(p.range())}
+          className={cn("rounded-full border px-2.5 py-1 text-xs font-semibold", activePreset?.key === p.key ? "border-brand bg-brand-100 text-brand" : "border-border text-ink-2 hover:bg-surface-2")}>
+          {p.label}
+        </button>
+      ))}
+      <input type="date" value={v.from} onChange={(e) => onChange({ ...v, from: e.target.value })} className={`${fieldCls} h-9 max-w-[150px]`} />
+      <span className="text-sm text-ink-3">to</span>
+      <input type="date" value={v.to} onChange={(e) => onChange({ ...v, to: e.target.value })} className={`${fieldCls} h-9 max-w-[150px]`} />
     </div>
   );
 }

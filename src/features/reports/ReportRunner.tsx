@@ -4,14 +4,15 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Download, FileSpreadsheet } from "lucide-react";
 import { isApiConfigured } from "@/lib/apiClient";
 import { getLocation } from "@/lib/auth";
-import { Button, Card } from "@/components/ui/primitives";
+import { Button } from "@/components/ui/primitives";
 import { DataTable } from "@/components/DataTable";
 import { findReport } from "./data";
 import { getReportConfig } from "./configs";
 import { ReportFilters } from "./ReportFilters";
 import { defaultRange } from "./dates";
 import { downloadCsv, objectsToCsv } from "./csv";
-import type { ParamDef, ParamValues, ReportResult, SummaryTile } from "./types";
+import { StatStrip } from "./StatStrip";
+import type { ParamDef, ParamValues, ReportResult } from "./types";
 
 const PAGE_SIZE = 25;
 
@@ -145,7 +146,7 @@ function DeclarativeResult({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      {result?.summary && result.summary.length > 0 && <SummaryStrip tiles={result.summary} />}
+      {result?.summary && result.summary.length > 0 && <StatStrip stats={result.summary} />}
       <div className="flex items-center justify-between">
         <span className="text-sm text-ink-2">{loading ? "Loading…" : `${totalRows.toLocaleString("en-IN")} row${totalRows === 1 ? "" : "s"}`}</span>
         {totalRows > 0 && <Button variant="default" size="sm" onClick={onExport}><Download className="h-4 w-4" /> Export CSV</Button>}
@@ -156,19 +157,6 @@ function DeclarativeResult({
         page={page} maxPage={maxPage} count={totalRows} onPage={onPage}
         emptyText="No data for the selected filters." countNoun="rows"
       />
-    </div>
-  );
-}
-
-function SummaryStrip({ tiles }: { tiles: SummaryTile[] }) {
-  return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-      {tiles.map((t) => (
-        <Card key={t.label} className="p-3">
-          <div className={`text-lg font-bold tnum ${t.tone === "danger" ? "text-danger" : t.tone === "ok" ? "text-ok" : t.tone === "warn" ? "text-warn" : ""}`}>{t.value}</div>
-          <div className="mt-0.5 text-xs text-ink-3">{t.label}</div>
-        </Card>
-      ))}
     </div>
   );
 }
