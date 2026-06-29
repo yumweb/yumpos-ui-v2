@@ -188,8 +188,7 @@ const customerEvents = (slug: string, event: 1 | 2): ReportConfig =>
       const day = String(now.getDate()).padStart(2, "0");
       const month = String(now.getMonth() + 1).padStart(2, "0");
       const res = await A.getCustomerEvents(event, day, month, 0);
-      const rows = Array.isArray(res) ? res : (res?.data ?? []);
-      return { rows: rows as A.CustomerEventRow[] };
+      return { rows: res?.webReport?.summary ?? [] };
     },
   });
 
@@ -210,10 +209,7 @@ const customersDetailed = def<A.LegacyCustomerSaleRow>({
   run: async (v) => {
     const r = v.range as { from: string; to: string };
     const res = await A.getCustomerSales(startOfDay(r.from), endOfDay(r.to), 0);
-    // Legacy wraps rows variably; normalise common shapes.
-    const obj = res as { data?: unknown; saleSummary?: unknown; Payload?: { data?: unknown } };
-    const rows = (Array.isArray(res) ? res : obj.data ?? obj.saleSummary ?? obj.Payload?.data ?? []) as A.LegacyCustomerSaleRow[];
-    return { rows: Array.isArray(rows) ? rows : [] };
+    return { rows: res?.webReport?.summary ?? [] };
   },
 });
 

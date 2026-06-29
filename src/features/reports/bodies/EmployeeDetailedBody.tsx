@@ -23,10 +23,14 @@ export function EmployeeDetailedBody({ values }: { values: ParamValues }) {
     return m;
   }, [employees]);
 
+  // No selection => all employees. The backend's `serviceEmployee IN (...)`
+  // throws on an empty array, so we always send at least the full roster.
+  const effectiveIds = employeeIds.length ? employeeIds : employees.map((e) => e.personId);
+
   const q = useQuery({
-    queryKey: ["report", "employees-detailed", range, employeeIds],
-    enabled: isApiConfigured() && !!range?.from && !!range?.to,
-    queryFn: () => getEmployeeReport(startOfDay(range.from), endOfDay(range.to), employeeIds),
+    queryKey: ["report", "employees-detailed", range, effectiveIds],
+    enabled: isApiConfigured() && !!range?.from && !!range?.to && effectiveIds.length > 0,
+    queryFn: () => getEmployeeReport(startOfDay(range.from), endOfDay(range.to), effectiveIds),
   });
 
   const rows: Row[] = useMemo(() => {

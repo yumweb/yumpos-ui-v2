@@ -154,16 +154,19 @@ async function legacy<T>(action: string, payload: Record<string, unknown>, versi
 }
 const locId = () => Number(getLocation()?.locationId);
 
+/** Legacy reports wrap web rows in `webReport.summary` (+ totals in totalCustomer). */
+interface LegacyWeb<T> { webReport?: { summary?: T[]; detail?: T[]; totalCustomer?: Record<string, number> } }
+
 export interface CustomerEventRow { customer_name: string; phone_number: string; birthday?: string; anniversary?: string }
 export const getCustomerEvents = (event: 1 | 2, day: string, month: string, offset = 0) =>
-  legacy<{ data?: CustomerEventRow[] } | CustomerEventRow[]>("CustomerEvents", { locationId: [locId()], event, day, month, offset, csvExport: 0 });
+  legacy<LegacyWeb<CustomerEventRow>>("CustomerEvents", { locationId: [locId()], event, day, month, offset, csvExport: 0 });
 
 export interface LegacyCustomerSaleRow {
   sale_location_id: string; sale_time: string; customer_name: string; customer_phone: string;
   gender: string; total_visits: number; customer_type: string; total: number; payment_type: string;
 }
 export const getCustomerSales = (from: string, to: string, offset = 0) =>
-  legacy<unknown>("CustomerReportDetail", { customerId: -1, locationId: [locId()], dateFrom: from, dateTo: to, csvExport: 0, offset, itemId: [0], sourceId: [0] }, "v1");
+  legacy<LegacyWeb<LegacyCustomerSaleRow>>("CustomerReportDetail", { customerId: -1, locationId: [locId()], dateFrom: from, dateTo: to, csvExport: 0, offset, itemId: [0], sourceId: [0] }, "v1");
 
 /** GST report is CSV-only on the legacy host. */
 export const getGstReportCsv = (month: number, year: number) =>
