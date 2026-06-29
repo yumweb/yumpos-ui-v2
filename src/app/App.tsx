@@ -18,12 +18,13 @@ import { Employees } from "@/features/employees/Employees";
 import { Locations } from "@/features/locations/Locations";
 import { Appointments } from "@/features/appointments/Appointments";
 import { Tickets } from "@/features/tickets/Tickets";
+import { Reviews } from "@/features/reviews/Reviews";
 import { LoginScreen } from "@/features/auth/LoginScreen";
 import { isAuthenticated, isAdmin } from "@/lib/auth";
 import { Providers } from "./providers";
 import { ALL_ROUTES } from "./nav";
 
-const BUILT = new Set(["/home", "/sales", "/customers", "/leads", "/family-cards", "/gift-cards", "/coupons", "/services", "/retail-products", "/item-kits", "/suppliers", "/receivings", "/reports", "/employees", "/locations", "/appointments", "/tickets"]);
+const BUILT = new Set(["/home", "/sales", "/customers", "/leads", "/family-cards", "/gift-cards", "/coupons", "/services", "/retail-products", "/item-kits", "/suppliers", "/receivings", "/reports", "/employees", "/locations", "/appointments", "/tickets", "/reviews"]);
 
 /** Route guard — unauthenticated users go to /login (preserving intended path). */
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -84,6 +85,7 @@ export default function App() {
             <Route path="/employees" element={<Employees />} />
             <Route path="/appointments" element={<Appointments />} />
             <Route path="/tickets" element={<Tickets />} />
+            <Route path="/reviews" element={<Reviews />} />
             <Route path="/locations" element={<RequireAdmin><Locations /></RequireAdmin>} />
             {ALL_ROUTES.filter((r) => !BUILT.has(r.path)).map((r) => (
               <Route key={r.path} path={r.path} element={<ModulePage title={r.label} />} />
