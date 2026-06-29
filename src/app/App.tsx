@@ -13,7 +13,7 @@ import { ItemKits } from "@/features/itemKits/ItemKits";
 import { Suppliers } from "@/features/suppliers/Suppliers";
 import { Receivings } from "@/features/receivings/Receivings";
 import { ReportsHome } from "@/features/reports/ReportsHome";
-import { ReportPlaceholder } from "@/features/reports/ReportPlaceholder";
+import { ReportRunner } from "@/features/reports/ReportRunner";
 import { Employees } from "@/features/employees/Employees";
 import { Locations } from "@/features/locations/Locations";
 import { Appointments } from "@/features/appointments/Appointments";
@@ -88,7 +88,7 @@ export default function App() {
             <Route path="/suppliers" element={<Suppliers />} />
             <Route path="/receivings" element={<Receivings />} />
             <Route path="/reports" element={<ReportsHome />} />
-            <Route path="/reports/:slug" element={<ReportPlaceholder />} />
+            <Route path="/reports/:slug" element={<ReportRunner />} />
             <Route path="/employees" element={<Employees />} />
             <Route path="/appointments" element={<Appointments />} />
             <Route path="/tickets" element={<Tickets />} />
