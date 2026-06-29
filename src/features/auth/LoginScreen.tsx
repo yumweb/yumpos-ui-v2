@@ -77,7 +77,8 @@ export function LoginScreen() {
       {/* Form side */}
       <div className="relative grid place-items-center px-6 py-12">
         <div className="w-full max-w-[400px]">
-          <div className="mb-8 flex justify-center lg:justify-start">
+          {/* Logo only on mobile — desktop shows it on the brand panel */}
+          <div className="mb-8 flex justify-center lg:hidden">
             <img src={tenant.logo.onLight} alt={tenant.name} className="h-16 w-auto" />
           </div>
 
