@@ -15,11 +15,13 @@ interface DataTableProps<T> {
   getRowId: (row: T) => string;
   configured: boolean;
   loading: boolean;
+  error?: boolean;
   page: number;
   maxPage: number;
   count: number;
   onPage: (p: number) => void;
   emptyText?: string;
+  errorText?: string;
   countNoun?: string;
 }
 
@@ -29,11 +31,13 @@ export function DataTable<T>({
   getRowId,
   configured,
   loading,
+  error = false,
   page,
   maxPage,
   count,
   onPage,
   emptyText = "No records found.",
+  errorText = "Couldn’t load. Please try again.",
   countNoun = "records",
 }: DataTableProps<T>) {
   const span = columns.length;
@@ -58,6 +62,8 @@ export function DataTable<T>({
               <tr><td colSpan={span} className="px-5 py-12 text-center text-sm text-ink-3">Connect the API to load data.</td></tr>
             ) : loading ? (
               <tr><td colSpan={span} className="px-5 py-12 text-center text-sm text-ink-3">Loading…</td></tr>
+            ) : error ? (
+              <tr><td colSpan={span} className="px-5 py-12 text-center text-sm font-medium text-danger">{errorText}</td></tr>
             ) : rows.length === 0 ? (
               <tr><td colSpan={span} className="px-5 py-12 text-center text-sm text-ink-3">{emptyText}</td></tr>
             ) : (

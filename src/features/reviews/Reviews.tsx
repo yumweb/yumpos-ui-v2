@@ -13,7 +13,7 @@ const fmtDate = (raw?: string) => {
 export function Reviews() {
   const [page, setPage] = useState(1);
   const configured = isApiConfigured();
-  const { data, isLoading } = useReviews(page, LIMIT);
+  const { data, isLoading, isError } = useReviews(page, LIMIT);
   const count = data?.count ?? 0;
 
   const columns: Column<Review>[] = [
@@ -42,6 +42,7 @@ export function Reviews() {
         getRowId={(r) => String(r.id)}
         configured={configured}
         loading={isLoading}
+        error={isError}
         page={page}
         maxPage={Math.max(1, Math.ceil(count / LIMIT))}
         count={count}
