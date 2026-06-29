@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { ChevronDown, Plus, Bell, LogOut, User } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -23,6 +23,14 @@ function GroupMenu({
   onClose: () => void;
 }) {
   const admin = isAdmin();
+  const { pathname } = useLocation();
+  const items = group.items!.filter((it) => !it.adminOnly || admin);
+  // Highlight only the single best (longest-prefix) match, so a parent path like
+  // /whatsapp doesn't stay active on /whatsapp/chat alongside the child item.
+  const activePath = useMemo(() => {
+    const matches = items.filter((it) => pathname === it.path || pathname.startsWith(it.path + "/"));
+    return matches.reduce<string | null>((best, it) => (best && best.length >= it.path.length ? best : it.path), null);
+  }, [items, pathname]);
   return (
     <div className="relative">
       <button
@@ -37,19 +45,18 @@ function GroupMenu({
       </button>
       {open && (
         <div className="absolute left-0 top-[calc(100%+6px)] z-40 min-w-[200px] overflow-hidden rounded-md border border-border bg-surface p-1.5 shadow-soft">
-          {group.items!.filter((it) => !it.adminOnly || admin).map((it) => {
+          {items.map((it) => {
             const Icon = it.icon;
+            const isActive = it.path === activePath;
             return (
               <NavLink
                 key={it.path}
                 to={it.path}
                 onClick={onClose}
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-sm font-medium transition-colors",
-                    isActive ? "bg-brand-100 text-brand" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
-                  )
-                }
+                className={cn(
+                  "flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-sm font-medium transition-colors",
+                  isActive ? "bg-brand-100 text-brand" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+                )}
               >
                 {Icon && <Icon className="h-[18px] w-[18px] shrink-0 opacity-80" />}
                 {it.label}
