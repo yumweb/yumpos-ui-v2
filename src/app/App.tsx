@@ -21,12 +21,17 @@ import { Tickets } from "@/features/tickets/Tickets";
 import { Reviews } from "@/features/reviews/Reviews";
 import { GoogleBusiness } from "@/features/gmb/GoogleBusiness";
 import { GmbCallback } from "@/features/gmb/GmbCallback";
+import { WhatsApp } from "@/features/whatsapp/WhatsApp";
+import { Campaigns } from "@/features/whatsapp/Campaigns";
+import { CampaignForm } from "@/features/whatsapp/CampaignForm";
+import { CampaignView } from "@/features/whatsapp/CampaignView";
+import { Chat } from "@/features/whatsapp/Chat";
 import { LoginScreen } from "@/features/auth/LoginScreen";
 import { isAuthenticated, isAdmin } from "@/lib/auth";
 import { Providers } from "./providers";
 import { ALL_ROUTES } from "./nav";
 
-const BUILT = new Set(["/home", "/sales", "/customers", "/leads", "/family-cards", "/gift-cards", "/coupons", "/services", "/retail-products", "/item-kits", "/suppliers", "/receivings", "/reports", "/employees", "/locations", "/appointments", "/tickets", "/reviews", "/google-business"]);
+const BUILT = new Set(["/home", "/sales", "/customers", "/leads", "/family-cards", "/gift-cards", "/coupons", "/services", "/retail-products", "/item-kits", "/suppliers", "/receivings", "/reports", "/employees", "/locations", "/appointments", "/tickets", "/reviews", "/google-business", "/whatsapp", "/whatsapp/campaigns", "/whatsapp/chat"]);
 
 /** Route guard — unauthenticated users go to /login (preserving intended path). */
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -90,6 +95,12 @@ export default function App() {
             <Route path="/reviews" element={<Reviews />} />
             <Route path="/google-business" element={<GoogleBusiness />} />
             <Route path="/gmb/callback" element={<GmbCallback />} />
+            <Route path="/whatsapp" element={<WhatsApp />} />
+            <Route path="/whatsapp/campaigns" element={<Campaigns />} />
+            <Route path="/whatsapp/campaigns/create" element={<CampaignForm />} />
+            <Route path="/whatsapp/campaigns/edit/:campaignId" element={<CampaignForm />} />
+            <Route path="/whatsapp/campaigns/view/:campaignId" element={<CampaignView />} />
+            <Route path="/whatsapp/chat" element={<Chat />} />
             <Route path="/locations" element={<RequireAdmin><Locations /></RequireAdmin>} />
             {ALL_ROUTES.filter((r) => !BUILT.has(r.path)).map((r) => (
               <Route key={r.path} path={r.path} element={<ModulePage title={r.label} />} />
