@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search, Plus, Minus, X, User, UserPlus, Users, Pause, Loader2, Check, AlertCircle,
-  Pencil, MoreHorizontal, CalendarPlus, CreditCard, ClipboardList, Package, FileText, Monitor,
+  Pencil, MoreHorizontal, CalendarPlus, CreditCard, ClipboardList, Package, FileText,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { NewCustomerModal } from "./NewCustomerModal";
@@ -19,6 +19,7 @@ import {
   parseTechnicians,
   parseTaxConfig,
   computeBill,
+  receiptUrl,
   customerName,
   customerId,
   type PosItem,
@@ -62,6 +63,9 @@ export function POS() {
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [newCustOpen, setNewCustOpen] = useState(false);
+  const [entireDisc, setEntireDisc] = useState("");
+  const [discAll, setDiscAll] = useState("");
+  const [lastSaleId, setLastSaleId] = useState<number | string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -85,7 +89,9 @@ export function POS() {
   const custSearch = useCustomerByPhone(phone);
   const createSale = useCreateSale();
 
-  const bill = computeBill(lines, tax);
+  const loyaltyDisc = Number(customer?.loyaltyCardDiscount) || 0;
+  const entireDiscNum = Math.max(0, Number(entireDisc) || 0);
+  const bill = computeBill(lines, tax, entireDiscNum);
 
   /* ---- cart ops ---- */
   function add(item: PosItem) {
@@ -97,15 +103,26 @@ export function POS() {
         next[i] = { ...next[i], qty: next[i].qty + 1 };
         return next;
       }
-      return [...cur, { item, qty: 1, technicianId: null }];
+      // New service lines inherit the customer's loyalty-card discount.
+      return [...cur, { item, qty: 1, technicianId: null, discountPercent: item.isService ? loyaltyDisc : 0 }];
     });
     setOpen(false);
+  }
+  function selectCustomer(c: CustomerLite) {
+    setCustomer(c);
+    setError("");
+    const d = Number(c?.loyaltyCardDiscount) || 0;
+    if (d > 0) setLines((cur) => cur.map((l) => (l.item.isService ? { ...l, discountPercent: d } : l)));
   }
   const setQty = (id: PosItem["id"], d: number) =>
     setLines((cur) => cur.map((l) => (l.item.id === id ? { ...l, qty: Math.max(0, l.qty + d) } : l)).filter((l) => l.qty > 0));
   const remove = (id: PosItem["id"]) => setLines((cur) => cur.filter((l) => l.item.id !== id));
   const setTech = (id: PosItem["id"], techId: string) =>
     setLines((cur) => cur.map((l) => (l.item.id === id ? { ...l, technicianId: techId ? techId : null } : l)));
+  const setDisc = (id: PosItem["id"], pct: number) =>
+    setLines((cur) => cur.map((l) => (l.item.id === id ? { ...l, discountPercent: Math.max(0, Math.min(100, pct || 0)) } : l)));
+  const applyDiscountToAll = (pct: number) =>
+    setLines((cur) => cur.map((l) => (l.item.isService ? { ...l, discountPercent: Math.max(0, Math.min(100, pct || 0)) } : l)));
 
   /* ---- validations (parity with Sales.js) ---- */
   function validate(forSuspend: boolean): string | null {
@@ -131,6 +148,34 @@ export function POS() {
       { name: tax.name1, percent: tax.rate1 },
       { name: tax.name2, percent: tax.rate2 },
     ];
+    const items: unknown[] = lines.map((l, idx) => ({
+      itemType: "item",
+      item: {
+        description: l.item.name,
+        line: idx,
+        quantityPurchased: l.qty,
+        discountPercent: l.discountPercent || 0,
+        commission: 0,
+        serviceEmployeeId: l.technicianId ?? 0,
+        itemTaxes,
+        id: l.item.id,
+        serialNumber: 0,
+        itemCostPrice: l.item.price,
+        itemUnitPrice: l.item.price,
+        isService: l.item.isService,
+      },
+    }));
+    // Whole-sale fixed discount → the legacy discount line item (id 291).
+    if (entireDiscNum > 0) {
+      items.push({
+        itemType: "item",
+        item: {
+          id: 291, description: "Discount", line: items.length, quantityPurchased: 1,
+          discountPercent: 0, commission: 0, serviceEmployeeId: 0, itemTaxes,
+          serialNumber: 0, itemCostPrice: entireDiscNum, itemUnitPrice: entireDiscNum, isService: true,
+        },
+      });
+    }
     const payload = {
       customerId: customerId(customer),
       employeeId,
@@ -139,33 +184,23 @@ export function POS() {
       wasAppointment: false,
       comment: note ? `V2 - ${note}` : "V2",
       showCommentOnReceipt: false,
-      items: lines.map((l, idx) => ({
-        itemType: "item",
-        item: {
-          description: l.item.name,
-          line: idx,
-          quantityPurchased: l.qty,
-          discountPercent: 0,
-          commission: 0,
-          serviceEmployeeId: l.technicianId ?? 0,
-          itemTaxes,
-          id: l.item.id,
-          serialNumber: 0,
-          itemCostPrice: l.item.price,
-          itemUnitPrice: l.item.price,
-          isService: l.item.isService,
-        },
-      })),
+      items,
       payments: suspended === 1 ? [] : [{ paymentType: pay === "Google Pay" ? "GooglePay" : pay, paymentAmount: bill.total }],
       suspended,
       saleTime: new Date().toISOString(),
     };
     createSale.mutate(payload, {
-      onSuccess: () => {
+      onSuccess: (res) => {
+        const saleId = (res as { id?: number | string })?.id ?? null;
+        setLastSaleId(saleId);
+        // Open the public receipt/print page for a completed sale.
+        if (suspended === 0 && saleId != null) window.open(receiptUrl(locationId, saleId), "_blank");
         setLines([]);
         setCustomer(null);
         setPhone("");
         setNote("");
+        setEntireDisc("");
+        setDiscAll("");
       },
     });
   }
@@ -216,9 +251,8 @@ export function POS() {
                 { icon: Users, label: "Sell FamilyCard" },
                 { icon: ClipboardList, label: "Suspend Sales", onClick: () => { setMenuOpen(false); submit(1); } },
                 { icon: Package, label: "Packages Sale" },
-                { icon: FileText, label: "Lookup Receipt" },
-                { icon: FileText, label: "Show last sale receipt" },
-                { icon: Monitor, label: "Customer Facing Display" },
+                { icon: FileText, label: "Lookup Receipt", onClick: () => { setMenuOpen(false); const id = window.prompt("Enter sale number to open its receipt"); if (id && id.trim()) window.open(receiptUrl(locationId, id.trim()), "_blank"); } },
+                { icon: FileText, label: "Show last sale receipt", onClick: lastSaleId != null ? () => { setMenuOpen(false); window.open(receiptUrl(locationId, lastSaleId), "_blank"); } : undefined },
               ].map((it) => (
                 <button key={it.label} onClick={it.onClick} disabled={!it.onClick} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-sm font-medium text-ink-2 transition-colors hover:bg-surface-2 disabled:opacity-50">
                   <it.icon className="h-4 w-4" /> {it.label}
@@ -307,6 +341,7 @@ export function POS() {
                   <th className="px-5 py-2 font-semibold">Item</th>
                   <th className="py-2 font-semibold">Technician</th>
                   <th className="py-2 font-semibold">Qty</th>
+                  <th className="py-2 font-semibold">Disc %</th>
                   <th className="py-2 text-right font-semibold">Price</th>
                   <th className="py-2 text-right font-semibold">Total</th>
                   <th className="px-5"></th>
@@ -338,8 +373,18 @@ export function POS() {
                         <button onClick={() => setQty(l.item.id, 1)} className="grid h-7 w-7 place-items-center bg-surface-2 text-ink-2"><Plus className="h-3.5 w-3.5" /></button>
                       </div>
                     </td>
+                    <td className="py-2.5">
+                      {l.item.isService ? (
+                        <input
+                          type="number" min={0} max={100} value={l.discountPercent || ""}
+                          onChange={(e) => setDisc(l.item.id, Number(e.target.value))}
+                          placeholder="0"
+                          className="w-16 rounded-md border border-border bg-surface px-2 py-1.5 text-[13px] outline-none focus:border-brand"
+                        />
+                      ) : <span className="text-ink-3">—</span>}
+                    </td>
                     <td className="tnum py-2.5 text-right">{formatINR(l.item.price)}</td>
-                    <td className="tnum py-2.5 text-right font-semibold">{formatINR(l.item.price * l.qty)}</td>
+                    <td className="tnum py-2.5 text-right font-semibold">{formatINR(l.item.price * l.qty * (1 - (l.discountPercent || 0) / 100))}</td>
                     <td className="px-5 text-right">
                       <button onClick={() => remove(l.item.id)} className="text-ink-3 hover:text-danger"><X className="h-4 w-4" /></button>
                     </td>
@@ -382,7 +427,7 @@ export function POS() {
               </div>
               {custSearch.data && (
                 <button
-                  onClick={() => { setCustomer(custSearch.data!); setError(""); }}
+                  onClick={() => selectCustomer(custSearch.data!)}
                   className="flex items-center gap-3 rounded-md border border-border px-3 py-2.5 text-left transition-colors hover:border-brand"
                 >
                   <div className="flex-1">
@@ -406,10 +451,29 @@ export function POS() {
           </div>
         ) : (
           <>
+            {/* discounts */}
+            {lines.length > 0 && (
+              <section className="flex flex-col gap-2">
+                <div className="text-[11px] font-bold uppercase tracking-wide text-ink-3">Discounts</div>
+                {loyaltyDisc > 0 && <p className="text-xs text-ink-3">Loyalty card: {loyaltyDisc}% applied to services.</p>}
+                <div className="flex items-center gap-2">
+                  <input type="number" min={0} max={100} value={discAll} onChange={(e) => setDiscAll(e.target.value)} placeholder="% off all services"
+                    className="h-9 flex-1 rounded-md border border-border bg-surface-2 px-3 text-sm outline-none focus:border-brand" />
+                  <Button variant="default" size="sm" onClick={() => applyDiscountToAll(Number(discAll))}>Apply</Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-ink-2">Entire sale (₹ off)</span>
+                  <input type="number" min={0} value={entireDisc} onChange={(e) => setEntireDisc(e.target.value)} placeholder="0"
+                    className="ml-auto h-9 w-28 rounded-md border border-border bg-surface-2 px-3 text-right text-sm outline-none focus:border-brand" />
+                </div>
+              </section>
+            )}
+
             {/* bill summary */}
             <section className="flex flex-col gap-2">
               <div className="text-[11px] font-bold uppercase tracking-wide text-ink-3">Bill summary</div>
               <div className="flex justify-between text-sm text-ink-2"><span>Subtotal</span><span className="tnum">{formatINR(bill.subtotal)}</span></div>
+              {bill.discount > 0 && <div className="flex justify-between text-sm text-ok"><span>Discount</span><span className="tnum">- {formatINR(bill.discount)}</span></div>}
               <div className="flex justify-between text-xs text-ink-3"><span>{tax.name1} {tax.rate1}%</span><span className="tnum">{formatINR(bill.cgst)}</span></div>
               <div className="flex justify-between text-xs text-ink-3"><span>{tax.name2} {tax.rate2}%</span><span className="tnum">{formatINR(bill.sgst)}</span></div>
               <div className="mt-1 flex justify-between border-t border-border pt-2 text-lg font-bold"><span>Total</span><span className="tnum">{formatINR(bill.total)}</span></div>
@@ -464,7 +528,7 @@ export function POS() {
         open={newCustOpen}
         onClose={() => setNewCustOpen(false)}
         defaultPhone={phone}
-        onCreated={(c) => { setCustomer(c); setError(""); }}
+        onCreated={(c) => selectCustomer(c)}
       />
     </div>
   );

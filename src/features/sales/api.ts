@@ -159,39 +159,64 @@ export interface CartLine {
   item: PosItem;
   qty: number;
   technicianId: number | string | null;
+  /** Per-line discount %, 0-100 (services only, mirroring the register). */
+  discountPercent: number;
 }
 
 export interface Bill {
   subtotal: number;
+  discount: number;
   cgst: number;
   sgst: number;
   taxTotal: number;
   total: number;
 }
 
-/** Per-line tax (inclusive vs exclusive), CGST/SGST split from the location config. */
-export function computeBill(lines: CartLine[], tax: TaxConfig): Bill {
+/**
+ * Per-line tax (inclusive vs exclusive) with CGST/SGST split, plus discounts:
+ * each line's `discountPercent`, and an optional whole-sale fixed ₹ discount
+ * applied pre-tax (the legacy "Discount Entire Sale" line item).
+ */
+export function computeBill(lines: CartLine[], tax: TaxConfig, entireSaleDiscount = 0): Bill {
   const rate = tax.rate1 + tax.rate2;
   let subtotal = 0;
+  let discount = 0;
   let cgst = 0;
   let sgst = 0;
+  const splitTax = (lineTax: number) => {
+    if (rate > 0) { cgst += (lineTax * tax.rate1) / rate; sgst += (lineTax * tax.rate2) / rate; }
+  };
   for (const l of lines) {
-    const gross = l.item.price * l.qty;
+    const grossFull = l.item.price * l.qty;
+    const gross = grossFull * (1 - (l.discountPercent || 0) / 100);
     const base = l.item.taxIncluded && rate > 0 ? gross / (1 + rate / 100) : gross;
+    const baseFull = l.item.taxIncluded && rate > 0 ? grossFull / (1 + rate / 100) : grossFull;
     const lineTax = l.item.taxIncluded ? gross - base : (base * rate) / 100;
     subtotal += base;
-    if (rate > 0) {
-      cgst += (lineTax * tax.rate1) / rate;
-      sgst += (lineTax * tax.rate2) / rate;
-    }
+    discount += baseFull - base;
+    splitTax(lineTax);
+  }
+  // whole-sale fixed discount (pre-tax service reduction), capped at the subtotal
+  if (entireSaleDiscount > 0) {
+    const d = Math.min(entireSaleDiscount, subtotal);
+    subtotal -= d;
+    discount += d;
+    const dTax = (d * rate) / 100;
+    if (rate > 0) { cgst -= (dTax * tax.rate1) / rate; sgst -= (dTax * tax.rate2) / rate; }
   }
   const r2 = (n: number) => Math.round(n * 100) / 100;
   subtotal = r2(subtotal);
-  cgst = r2(cgst);
-  sgst = r2(sgst);
+  discount = r2(discount);
+  cgst = r2(Math.max(0, cgst));
+  sgst = r2(Math.max(0, sgst));
   const taxTotal = r2(cgst + sgst);
-  return { subtotal, cgst, sgst, taxTotal, total: r2(subtotal + taxTotal) };
+  return { subtotal, discount, cgst, sgst, taxTotal, total: r2(subtotal + taxTotal) };
 }
+
+/** Public receipt/print app (yumpos-url-shortener on b.studio11.co). */
+const RECEIPT_BASE = (import.meta.env.VITE_RECEIPT_URL ?? "https://b.studio11.co").replace(/\/$/, "");
+export const receiptUrl = (locationId: number | string, saleId: number | string) =>
+  `${RECEIPT_BASE}/print/${locationId}/${saleId}`;
 
 /* ---- Customer ---- */
 
