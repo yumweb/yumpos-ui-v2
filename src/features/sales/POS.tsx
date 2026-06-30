@@ -54,7 +54,7 @@ function InfoRow({ label, value, labelClass, alt }: { label: string; value: Reac
 export function POS() {
   const locationId = (getLocation()?.locationId as number | string) ?? 1;
   const user = getUser<{ personId?: number | string; id?: number | string }>();
-  const employeeId = user?.personId ?? user?.id ?? null;
+  const employeeId = Number(user?.personId ?? user?.id) || null;
 
   const [keyword, setKeyword] = useState("");
   const [open, setOpen] = useState(false);
@@ -178,7 +178,7 @@ export function POS() {
         quantityPurchased: l.qty,
         discountPercent: l.discountPercent || 0,
         commission: 0,
-        serviceEmployeeId: l.technicianId ?? 0,
+        serviceEmployeeId: l.technicianId ? Number(l.technicianId) : 0,
         itemTaxes,
         id: l.item.id,
         serialNumber: 0,
@@ -199,7 +199,7 @@ export function POS() {
       });
     }
     const payload = {
-      customerId: customerId(customer),
+      customerId: Number(customerId(customer)) || customerId(customer),
       employeeId,
       soldBy: employeeId,
       registerId: 1,
