@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { NewCustomerModal } from "./NewCustomerModal";
+import { SellCardModal } from "./SellCardModal";
 import { formatINR } from "@/lib/format";
 import { isApiConfigured } from "@/lib/apiClient";
 import { getLocation, getUser } from "@/lib/auth";
@@ -28,9 +29,12 @@ import {
   redeemCoupon,
   customerName,
   customerId,
+  GIFT_CARD_ITEM_ID,
+  FAMILY_CARD_ITEM_ID,
   type PosItem,
   type CartLine,
   type CustomerLite,
+  type SpecialCard,
 } from "./api";
 
 /** Payment methods carried over verbatim from the existing register. */
@@ -83,6 +87,7 @@ export function POS() {
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [newCustOpen, setNewCustOpen] = useState(false);
+  const [sellCard, setSellCard] = useState<{ kind: "giftCard" | "familyCard" } | null>(null);
   const [entireDisc, setEntireDisc] = useState("");
   const [discAll, setDiscAll] = useState("");
   const [lastSaleId, setLastSaleId] = useState<number | string | null>(null);
@@ -193,13 +198,22 @@ export function POS() {
   }
   const setQty = (id: PosItem["id"], d: number) =>
     setLines((cur) => cur.map((l) => (l.item.id === id ? { ...l, qty: Math.max(0, l.qty + d) } : l)).filter((l) => l.qty > 0));
-  const remove = (id: PosItem["id"]) => setLines((cur) => cur.filter((l) => l.item.id !== id));
+  const removeAt = (i: number) => setLines((cur) => cur.filter((_, j) => j !== i));
   const setTech = (id: PosItem["id"], techId: string) =>
     setLines((cur) => cur.map((l) => (l.item.id === id ? { ...l, technicianId: techId ? techId : null } : l)));
   const setDisc = (id: PosItem["id"], pct: number) =>
     setLines((cur) => cur.map((l) => (l.item.id === id ? { ...l, discountPercent: Math.max(0, Math.min(100, pct || 0)) } : l)));
   const applyDiscountToAll = (pct: number) =>
     setLines((cur) => cur.map((l) => (l.item.isService ? { ...l, discountPercent: Math.max(0, Math.min(100, pct || 0)) } : l)));
+  function addSpecialCard(s: SpecialCard) {
+    const item: PosItem = {
+      id: s.kind === "giftCard" ? GIFT_CARD_ITEM_ID : FAMILY_CARD_ITEM_ID,
+      name: `${s.kind === "giftCard" ? "Gift Card" : "Family Card"} #${s.number}`,
+      price: s.price, category: "", isService: true, taxIncluded: true, stock: 0,
+    };
+    setLines((cur) => [...cur, { item, qty: 1, technicianId: null, discountPercent: 0, special: s }]);
+    setError("");
+  }
 
   /* ---- validations (parity with Sales.js) ---- */
   function validate(forSuspend: boolean): string | null {
@@ -208,7 +222,7 @@ export function POS() {
     const zero = lines.find((l) => Number(l.item.price) === 0);
     if (zero) return `${zero.item.name} price should not be zero.`;
     if (!forSuspend) {
-      const noTech = lines.find((l) => !l.technicianId);
+      const noTech = lines.find((l) => !l.special && !l.technicianId);
       if (noTech) return "Select a technician for every item in the cart.";
     }
     return null;
@@ -229,30 +243,41 @@ export function POS() {
       { name: tax.name1, percent: tax.rate1 },
       { name: tax.name2, percent: tax.rate2 },
     ];
-    const items: unknown[] = lines.map((l, idx) => ({
-      itemType: "item",
-      item: {
-        description: l.item.name,
-        line: idx,
-        quantityPurchased: l.qty,
-        discountPercent: l.discountPercent || 0,
-        commission: 0,
-        serviceEmployeeId: l.technicianId ? Number(l.technicianId) : 0,
-        itemTaxes,
-        id: l.item.id,
-        serialNumber: 0,
-        itemCostPrice: l.item.price,
-        itemUnitPrice: l.item.price,
-        isService: l.item.isService,
-      },
-    }));
+    const items: unknown[] = [];
+    lines.forEach((l, idx) => {
+      if (l.special) {
+        // A card being sold: the card record entry + its charge line (id 2944/2909).
+        if (l.special.kind === "giftCard") {
+          items.push({ itemType: "giftCard", giftCard: { giftCardNumber: l.special.number, value: l.special.value } });
+        } else {
+          items.push({ itemType: "familyCard", familyCard: { familyCardNumber: l.special.number, value: l.special.value, description: l.special.number, validityDate: l.special.validityDate } });
+        }
+        items.push({
+          itemType: "item",
+          item: {
+            description: l.item.name, line: idx, quantityPurchased: 1, discountPercent: 0, commission: 0,
+            serviceEmployeeId: employeeId ?? 0, itemTaxes, id: l.item.id, serialNumber: 0,
+            itemCostPrice: l.special.price, itemUnitPrice: l.special.price, isService: true,
+          },
+        });
+        return;
+      }
+      items.push({
+        itemType: "item",
+        item: {
+          description: l.item.name, line: idx, quantityPurchased: l.qty, discountPercent: l.discountPercent || 0, commission: 0,
+          serviceEmployeeId: l.technicianId ? Number(l.technicianId) : 0, itemTaxes, id: l.item.id, serialNumber: 0,
+          itemCostPrice: l.item.price, itemUnitPrice: l.item.price, isService: l.item.isService,
+        },
+      });
+    });
     // Whole-sale fixed discount → the legacy discount line item (id 291).
     if (entireDiscNum > 0) {
       items.push({
         itemType: "item",
         item: {
           id: 291, description: "Discount", line: items.length, quantityPurchased: 1,
-          discountPercent: 0, commission: 0, serviceEmployeeId: 0, itemTaxes,
+          discountPercent: 0, commission: 0, serviceEmployeeId: employeeId ?? 0, itemTaxes,
           serialNumber: 0, itemCostPrice: entireDiscNum, itemUnitPrice: entireDiscNum, isService: true,
         },
       });
@@ -345,8 +370,8 @@ export function POS() {
           {menuOpen && (
             <div className="absolute left-0 top-[calc(100%+6px)] z-40 min-w-[236px] rounded-md border border-border bg-surface p-1.5 shadow-soft">
               {[
-                { icon: CreditCard, label: "Sell GiftCard" },
-                { icon: Users, label: "Sell FamilyCard" },
+                { icon: CreditCard, label: "Sell GiftCard", onClick: () => { setMenuOpen(false); setSellCard({ kind: "giftCard" }); } },
+                { icon: Users, label: "Sell FamilyCard", onClick: () => { setMenuOpen(false); setSellCard({ kind: "familyCard" }); } },
                 { icon: ClipboardList, label: "Suspend Sales", onClick: () => { setMenuOpen(false); submit(1); } },
                 { icon: Package, label: "Packages Sale" },
                 { icon: FileText, label: "Lookup Receipt", onClick: () => { setMenuOpen(false); const id = window.prompt("Enter sale number to open its receipt"); if (id && id.trim()) window.open(receiptUrl(locationId, id.trim()), "_blank"); } },
@@ -446,45 +471,60 @@ export function POS() {
                 </tr>
               </thead>
               <tbody>
-                {lines.map((l) => (
-                  <tr key={String(l.item.id)} className="border-t border-border align-middle">
-                    <td className="px-5 py-2.5 font-semibold">{l.item.name}</td>
-                    <td className="py-2.5">
-                      <select
-                        value={l.technicianId ?? ""}
-                        onChange={(e) => setTech(l.item.id, e.target.value)}
-                        className={cn(
-                          "rounded-md border bg-surface px-2 py-1.5 text-[13px] outline-none",
-                          l.technicianId ? "border-border" : "border-danger text-danger"
-                        )}
-                      >
-                        <option value="">Assign…</option>
-                        {technicians.map((t) => (
-                          <option key={String(t.id)} value={String(t.id)}>{t.name}</option>
-                        ))}
-                      </select>
+                {lines.map((l, idx) => (
+                  <tr key={l.special ? `${l.special.kind}-${l.special.number}` : String(l.item.id)} className="border-t border-border align-middle">
+                    <td className="px-5 py-2.5 font-semibold">
+                      {l.item.name}
+                      {l.special?.kind === "familyCard" && l.special.value !== l.special.price && (
+                        <span className="ml-1 text-xs font-normal text-ink-3">(credit {formatINR(l.special.value)})</span>
+                      )}
                     </td>
                     <td className="py-2.5">
-                      <div className="inline-flex items-center overflow-hidden rounded-md border border-border">
-                        <button onClick={() => setQty(l.item.id, -1)} className="grid h-7 w-7 place-items-center bg-surface-2 text-ink-2"><Minus className="h-3.5 w-3.5" /></button>
-                        <span className="tnum w-8 text-center font-semibold">{l.qty}</span>
-                        <button onClick={() => setQty(l.item.id, 1)} className="grid h-7 w-7 place-items-center bg-surface-2 text-ink-2"><Plus className="h-3.5 w-3.5" /></button>
-                      </div>
+                      {l.special ? (
+                        <span className="text-ink-3">—</span>
+                      ) : (
+                        <select
+                          value={l.technicianId ?? ""}
+                          onChange={(e) => setTech(l.item.id, e.target.value)}
+                          className={cn(
+                            "rounded-md border bg-surface px-2 py-1.5 text-[13px] outline-none",
+                            l.technicianId ? "border-border" : "border-danger text-danger"
+                          )}
+                        >
+                          <option value="">Assign…</option>
+                          {technicians.map((t) => (
+                            <option key={String(t.id)} value={String(t.id)}>{t.name}</option>
+                          ))}
+                        </select>
+                      )}
                     </td>
                     <td className="py-2.5">
-                      {l.item.isService ? (
+                      {l.special ? (
+                        <span className="tnum">1</span>
+                      ) : (
+                        <div className="inline-flex items-center overflow-hidden rounded-md border border-border">
+                          <button onClick={() => setQty(l.item.id, -1)} className="grid h-7 w-7 place-items-center bg-surface-2 text-ink-2"><Minus className="h-3.5 w-3.5" /></button>
+                          <span className="tnum w-8 text-center font-semibold">{l.qty}</span>
+                          <button onClick={() => setQty(l.item.id, 1)} className="grid h-7 w-7 place-items-center bg-surface-2 text-ink-2"><Plus className="h-3.5 w-3.5" /></button>
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-2.5">
+                      {l.special || !l.item.isService ? (
+                        <span className="text-ink-3">—</span>
+                      ) : (
                         <input
                           type="number" min={0} max={100} value={l.discountPercent || ""}
                           onChange={(e) => setDisc(l.item.id, Number(e.target.value))}
                           placeholder="0"
                           className="w-16 rounded-md border border-border bg-surface px-2 py-1.5 text-[13px] outline-none focus:border-brand"
                         />
-                      ) : <span className="text-ink-3">—</span>}
+                      )}
                     </td>
                     <td className="tnum py-2.5 text-right">{formatINR(l.item.price)}</td>
                     <td className="tnum py-2.5 text-right font-semibold">{formatINR(l.item.price * l.qty * (1 - (l.discountPercent || 0) / 100))}</td>
                     <td className="px-5 text-right">
-                      <button onClick={() => remove(l.item.id)} className="text-ink-3 hover:text-danger"><X className="h-4 w-4" /></button>
+                      <button onClick={() => removeAt(idx)} className="text-ink-3 hover:text-danger"><X className="h-4 w-4" /></button>
                     </td>
                   </tr>
                 ))}
@@ -668,6 +708,13 @@ export function POS() {
         onClose={() => setNewCustOpen(false)}
         defaultPhone={phone}
         onCreated={(c) => selectCustomer(c)}
+      />
+
+      <SellCardModal
+        kind={sellCard?.kind ?? "giftCard"}
+        open={sellCard != null}
+        onClose={() => setSellCard(null)}
+        onAdd={addSpecialCard}
       />
     </div>
   );

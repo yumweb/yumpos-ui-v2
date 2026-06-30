@@ -155,12 +155,27 @@ export function parseTaxConfig(loc?: RawLocation): TaxConfig {
   return { name1: rates![0].name || "CGST", rate1: r1, name2: rates![1].name || "SGST", rate2: r2 };
 }
 
+/** A gift/family card being SOLD on this sale (Phase 4). */
+export interface SpecialCard {
+  kind: "giftCard" | "familyCard";
+  number: string;
+  value: number; // card credit/stored value
+  price: number; // amount charged to the customer (presets can credit > price)
+  validityDate?: string; // family card only (ISO)
+}
+
+/** Catalog item ids for the card charge lines (mirrors the legacy register). */
+export const GIFT_CARD_ITEM_ID = 2944;
+export const FAMILY_CARD_ITEM_ID = 2909;
+
 export interface CartLine {
   item: PosItem;
   qty: number;
   technicianId: number | string | null;
   /** Per-line discount %, 0-100 (services only, mirroring the register). */
   discountPercent: number;
+  /** Set when this line is a gift/family card being sold. */
+  special?: SpecialCard;
 }
 
 export interface Bill {
