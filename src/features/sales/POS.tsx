@@ -32,6 +32,9 @@ const PAYMENT_METHODS = [
   "Cash", "Gift Card", "Family Card", "Coupon", "Debit Card", "Credit Card",
   "Points", "Airtel Payments", "Paytm", "Deal Sites", "PhonePe", "Google Pay", "Bharat QR",
 ];
+/** Balance-backed methods handled in a later phase; disabled in the split picker for now. */
+const REDEMPTION = new Set(["Gift Card", "Family Card", "Coupon", "Points"]);
+const payTypeForApi = (m: string) => (m === "Google Pay" ? "GooglePay" : m);
 
 const fmtCustDate = (d?: string | null) => {
   if (!d) return "NA";
@@ -58,7 +61,9 @@ export function POS() {
   const [lines, setLines] = useState<CartLine[]>([]);
   const [customer, setCustomer] = useState<CustomerLite | null>(null);
   const [phone, setPhone] = useState("");
-  const [pay, setPay] = useState<string>("Cash");
+  const [payMethod, setPayMethod] = useState<string>("Cash");
+  const [payAmount, setPayAmount] = useState("");
+  const [payments, setPayments] = useState<{ method: string; amount: number }[]>([]);
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -92,6 +97,19 @@ export function POS() {
   const loyaltyDisc = Number(customer?.loyaltyCardDiscount) || 0;
   const entireDiscNum = Math.max(0, Number(entireDisc) || 0);
   const bill = computeBill(lines, tax, entireDiscNum);
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const paid = r2(payments.reduce((s, p) => s + p.amount, 0));
+  const due = r2(bill.total - paid);
+  const change = due < 0 ? r2(-due) : 0;
+
+  function addPayment() {
+    const amt = r2(Number(payAmount) || (due > 0 ? due : 0));
+    if (amt <= 0) return;
+    setPayments((p) => [...p, { method: payMethod, amount: amt }]);
+    setPayAmount("");
+    setError("");
+  }
+  const removePayment = (i: number) => setPayments((p) => p.filter((_, j) => j !== i));
 
   /* ---- cart ops ---- */
   function add(item: PosItem) {
@@ -143,6 +161,10 @@ export function POS() {
       setError(err);
       return;
     }
+    if (suspended === 0 && payments.length > 0 && due > 0.01) {
+      setError(`Collect the full amount — ${formatINR(due)} still due.`);
+      return;
+    }
     setError("");
     const itemTaxes = [
       { name: tax.name1, percent: tax.rate1 },
@@ -185,7 +207,11 @@ export function POS() {
       comment: note ? `V2 - ${note}` : "V2",
       showCommentOnReceipt: false,
       items,
-      payments: suspended === 1 ? [] : [{ paymentType: pay === "Google Pay" ? "GooglePay" : pay, paymentAmount: bill.total }],
+      payments: suspended === 1
+        ? []
+        : payments.length > 0
+          ? payments.map((p) => ({ paymentType: payTypeForApi(p.method), paymentAmount: p.amount }))
+          : [{ paymentType: payTypeForApi(payMethod), paymentAmount: bill.total }],
       suspended,
       saleTime: new Date().toISOString(),
     };
@@ -201,6 +227,8 @@ export function POS() {
         setNote("");
         setEntireDisc("");
         setDiscAll("");
+        setPayments([]);
+        setPayAmount("");
       },
     });
   }
@@ -483,19 +511,54 @@ export function POS() {
             <section className="flex flex-col gap-2">
               <div className="text-[11px] font-bold uppercase tracking-wide text-ink-3">Payment</div>
               <div className="grid grid-cols-3 gap-2">
-                {PAYMENT_METHODS.map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setPay(m)}
-                    className={cn(
-                      "rounded-md border px-2 py-2 text-center text-[11.5px] font-semibold transition-colors",
-                      pay === m ? "border-brand bg-brand-100 text-brand" : "border-border bg-surface text-ink-2 hover:bg-surface-2"
-                    )}
-                  >
-                    {m}
-                  </button>
-                ))}
+                {PAYMENT_METHODS.map((m) => {
+                  const dis = REDEMPTION.has(m);
+                  return (
+                    <button
+                      key={m}
+                      disabled={dis}
+                      onClick={() => setPayMethod(m)}
+                      title={dis ? "Coming soon" : undefined}
+                      className={cn(
+                        "rounded-md border px-2 py-2 text-center text-[11.5px] font-semibold transition-colors",
+                        dis ? "cursor-not-allowed border-border bg-surface text-ink-3 opacity-50"
+                          : payMethod === m ? "border-brand bg-brand-100 text-brand" : "border-border bg-surface text-ink-2 hover:bg-surface-2"
+                      )}
+                    >
+                      {m}{dis && <span className="ml-1 text-[8px] uppercase tracking-wide">soon</span>}
+                    </button>
+                  );
+                })}
               </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number" min={0} value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") addPayment(); }}
+                  placeholder={due > 0 ? `Amount (due ${formatINR(due)})` : "Amount"}
+                  className="h-9 flex-1 rounded-md border border-border bg-surface-2 px-3 text-sm outline-none focus:border-brand"
+                />
+                <Button variant="default" size="sm" onClick={addPayment}><Plus className="h-4 w-4" /> Add</Button>
+              </div>
+              {payments.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  {payments.map((p, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm">
+                      <span className="font-semibold">{p.method}</span>
+                      <span className="flex items-center gap-2"><span className="tnum">{formatINR(p.amount)}</span>
+                        <button onClick={() => removePayment(i)} aria-label="Remove payment" className="text-ink-3 hover:text-danger"><X className="h-3.5 w-3.5" /></button></span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between pt-1 text-xs text-ink-3"><span>Paid</span><span className="tnum">{formatINR(paid)}</span></div>
+                  {due > 0.01 ? (
+                    <div className="flex justify-between text-xs font-bold text-warn"><span>Amount due</span><span className="tnum">{formatINR(due)}</span></div>
+                  ) : change > 0 ? (
+                    <div className="flex justify-between text-xs font-bold text-ok"><span>Change</span><span className="tnum">{formatINR(change)}</span></div>
+                  ) : (
+                    <div className="flex justify-between text-xs font-bold text-ok"><span>Fully paid</span><span /></div>
+                  )}
+                </div>
+              )}
             </section>
 
             <input
