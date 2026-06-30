@@ -20,6 +20,12 @@ import {
   parseTaxConfig,
   computeBill,
   receiptUrl,
+  lookupGiftCard,
+  lookupFamilyCard,
+  validateCoupon,
+  redeemGiftCard,
+  redeemFamilyCard,
+  redeemCoupon,
   customerName,
   customerId,
   type PosItem,
@@ -32,9 +38,16 @@ const PAYMENT_METHODS = [
   "Cash", "Gift Card", "Family Card", "Coupon", "Debit Card", "Credit Card",
   "Points", "Airtel Payments", "Paytm", "Deal Sites", "PhonePe", "Google Pay", "Bharat QR",
 ];
-/** Balance-backed methods handled in a later phase; disabled in the split picker for now. */
+/** Balance-backed methods: validated on add, redeemed post-sale (except Points). */
 const REDEMPTION = new Set(["Gift Card", "Family Card", "Coupon", "Points"]);
 const payTypeForApi = (m: string) => (m === "Google Pay" ? "GooglePay" : m);
+
+interface PaymentRow {
+  method: string;
+  amount: number;
+  /** Redemption instrument to deduct after the sale is created. */
+  ref?: { kind: "giftcard" | "familycard" | "coupon"; id: number; number: string };
+}
 
 const fmtCustDate = (d?: string | null) => {
   if (!d) return "NA";
@@ -63,7 +76,9 @@ export function POS() {
   const [phone, setPhone] = useState("");
   const [payMethod, setPayMethod] = useState<string>("Cash");
   const [payAmount, setPayAmount] = useState("");
-  const [payments, setPayments] = useState<{ method: string; amount: number }[]>([]);
+  const [payRef, setPayRef] = useState("");
+  const [payBusy, setPayBusy] = useState(false);
+  const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -102,12 +117,56 @@ export function POS() {
   const due = r2(bill.total - paid);
   const change = due < 0 ? r2(-due) : 0;
 
-  function addPayment() {
-    const amt = r2(Number(payAmount) || (due > 0 ? due : 0));
-    if (amt <= 0) return;
-    setPayments((p) => [...p, { method: payMethod, amount: amt }]);
-    setPayAmount("");
-    setError("");
+  async function addPayment() {
+    const cap = r2(Number(payAmount) || (due > 0 ? due : 0));
+    // Plain methods: just add the amount.
+    if (!REDEMPTION.has(payMethod)) {
+      if (cap <= 0) return;
+      setPayments((p) => [...p, { method: payMethod, amount: cap }]);
+      setPayAmount(""); setError("");
+      return;
+    }
+    if (due <= 0) { setError("The bill is already fully paid."); return; }
+    setPayBusy(true); setError("");
+    try {
+      if (payMethod === "Points") {
+        const pts = Math.trunc(Number(customer?.points) || 0);
+        const amt = r2(Math.min(pts, due, cap || due));
+        if (amt <= 0) { setError("No points available to redeem."); return; }
+        setPayments((p) => [...p, { method: "Points", amount: amt }]);
+      } else if (payMethod === "Gift Card") {
+        if (!payRef.trim()) { setError("Enter the gift card number."); return; }
+        const card = await lookupGiftCard(payRef.trim());
+        if (!card || card.deleted) { setError("Gift card not found."); return; }
+        if (card.inactive) { setError("This gift card is inactive."); return; }
+        if (card.person?.id && customer?.person?.id && Number(card.person.id) !== Number(customer.person.id)) { setError("This gift card belongs to another customer."); return; }
+        const bal = Number(card.value) || 0;
+        if (bal <= 0) { setError("This gift card has no balance."); return; }
+        setPayments((p) => [...p, { method: "Gift Card", amount: r2(Math.min(bal, due, cap || due)), ref: { kind: "giftcard", id: card.id, number: card.giftcardNumber } }]);
+      } else if (payMethod === "Family Card") {
+        if (!payRef.trim()) { setError("Enter the family card number."); return; }
+        const card = await lookupFamilyCard(payRef.trim());
+        if (!card || card.deleted) { setError("Family card not found."); return; }
+        if (card.inactive) { setError("This family card is inactive."); return; }
+        if (card.validityDate && new Date(card.validityDate) < new Date(new Date().setHours(0, 0, 0, 0))) { setError("This family card has expired."); return; }
+        const bal = Number(card.balance ?? card.value) || 0;
+        if (bal <= 0) { setError("This family card has no balance."); return; }
+        setPayments((p) => [...p, { method: "Family Card", amount: r2(Math.min(bal, due, cap || due)), ref: { kind: "familycard", id: card.id, number: card.familycardNumber } }]);
+      } else if (payMethod === "Coupon") {
+        if (!payRef.trim()) { setError("Enter the coupon code."); return; }
+        const v = await validateCoupon(payRef.trim(), customerId(customer)!, bill.total);
+        if (!v.valid || !v.coupon) { setError(v.error || "Coupon is not valid."); return; }
+        const val = v.coupon.couponOption === "percentage" ? (bill.total * v.coupon.value) / 100 : v.coupon.value;
+        const amt = r2(Math.min(val, due));
+        if (amt <= 0) { setError("Coupon has no redeemable value."); return; }
+        setPayments((p) => [...p, { method: "Coupon", amount: amt, ref: { kind: "coupon", id: v.coupon!.id, number: v.coupon!.couponNumber } }]);
+      }
+      setPayAmount(""); setPayRef("");
+    } catch {
+      setError("Couldn’t validate the payment instrument. Please try again.");
+    } finally {
+      setPayBusy(false);
+    }
   }
   const removePayment = (i: number) => setPayments((p) => p.filter((_, j) => j !== i));
 
@@ -216,11 +275,21 @@ export function POS() {
       saleTime: new Date().toISOString(),
     };
     createSale.mutate(payload, {
-      onSuccess: (res) => {
+      onSuccess: async (res) => {
         const saleId = (res as { id?: number | string })?.id ?? null;
         setLastSaleId(saleId);
-        // Open the public receipt/print page for a completed sale.
-        if (suspended === 0 && saleId != null) window.open(receiptUrl(locationId, saleId), "_blank");
+        if (suspended === 0 && saleId != null) {
+          // Redeem instruments now that we have a saleId (sale is already saved; best-effort).
+          for (const p of payments) {
+            if (!p.ref) continue;
+            try {
+              if (p.ref.kind === "giftcard") await redeemGiftCard(p.ref.id, { giftcardNumber: p.ref.number, redeemValue: p.amount, saleId: String(saleId) });
+              else if (p.ref.kind === "familycard") await redeemFamilyCard(p.ref.id, { familyCardNumber: p.ref.number, redeemValue: p.amount, saleId: String(saleId) });
+              else if (p.ref.kind === "coupon") await redeemCoupon(p.ref.id, { couponNumber: p.ref.number, redeemValue: p.amount, customerId: customerId(customer)!, billTotal: bill.total });
+            } catch { /* sale saved; redemption is best-effort */ }
+          }
+          window.open(receiptUrl(locationId, saleId), "_blank");
+        }
         setLines([]);
         setCustomer(null);
         setPhone("");
@@ -229,6 +298,7 @@ export function POS() {
         setDiscAll("");
         setPayments([]);
         setPayAmount("");
+        setPayRef("");
       },
     });
   }
@@ -511,34 +581,40 @@ export function POS() {
             <section className="flex flex-col gap-2">
               <div className="text-[11px] font-bold uppercase tracking-wide text-ink-3">Payment</div>
               <div className="grid grid-cols-3 gap-2">
-                {PAYMENT_METHODS.map((m) => {
-                  const dis = REDEMPTION.has(m);
-                  return (
-                    <button
-                      key={m}
-                      disabled={dis}
-                      onClick={() => setPayMethod(m)}
-                      title={dis ? "Coming soon" : undefined}
-                      className={cn(
-                        "rounded-md border px-2 py-2 text-center text-[11.5px] font-semibold transition-colors",
-                        dis ? "cursor-not-allowed border-border bg-surface text-ink-3 opacity-50"
-                          : payMethod === m ? "border-brand bg-brand-100 text-brand" : "border-border bg-surface text-ink-2 hover:bg-surface-2"
-                      )}
-                    >
-                      {m}{dis && <span className="ml-1 text-[8px] uppercase tracking-wide">soon</span>}
-                    </button>
-                  );
-                })}
+                {PAYMENT_METHODS.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => { setPayMethod(m); setPayRef(""); setError(""); }}
+                    className={cn(
+                      "rounded-md border px-2 py-2 text-center text-[11.5px] font-semibold transition-colors",
+                      payMethod === m ? "border-brand bg-brand-100 text-brand" : "border-border bg-surface text-ink-2 hover:bg-surface-2"
+                    )}
+                  >
+                    {m}
+                  </button>
+                ))}
               </div>
+              {(payMethod === "Gift Card" || payMethod === "Family Card" || payMethod === "Coupon") && (
+                <input
+                  value={payRef}
+                  onChange={(e) => setPayRef(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") addPayment(); }}
+                  placeholder={payMethod === "Coupon" ? "Coupon code" : `${payMethod} number`}
+                  className="h-9 rounded-md border border-border bg-surface-2 px-3 text-sm outline-none focus:border-brand"
+                />
+              )}
+              {payMethod === "Points" && (
+                <p className="text-xs text-ink-3">Available points: {Math.trunc(Number(customer?.points) || 0)}</p>
+              )}
               <div className="flex items-center gap-2">
                 <input
                   type="number" min={0} value={payAmount}
                   onChange={(e) => setPayAmount(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") addPayment(); }}
-                  placeholder={due > 0 ? `Amount (due ${formatINR(due)})` : "Amount"}
+                  placeholder={REDEMPTION.has(payMethod) ? "Amount (optional, max balance)" : due > 0 ? `Amount (due ${formatINR(due)})` : "Amount"}
                   className="h-9 flex-1 rounded-md border border-border bg-surface-2 px-3 text-sm outline-none focus:border-brand"
                 />
-                <Button variant="default" size="sm" onClick={addPayment}><Plus className="h-4 w-4" /> Add</Button>
+                <Button variant="default" size="sm" onClick={addPayment} disabled={payBusy}>{payBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Add</Button>
               </div>
               {payments.length > 0 && (
                 <div className="flex flex-col gap-1">

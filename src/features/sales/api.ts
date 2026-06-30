@@ -255,6 +255,42 @@ export function useCreateSale() {
   });
 }
 
+/* ---- Redemption instruments (gift card / family card / coupon) ---- *
+ * Phase 3: looked up + validated before adding as a payment, then redeemed
+ * post-sale (the sale's payments[] carries no card number, so the deduction
+ * must reference the created saleId). */
+
+export interface GiftCardLite { id: number; giftcardNumber: string; value: number; customerId?: number; inactive?: boolean; deleted?: boolean; person?: { id?: number } }
+export interface FamilyCardLite { id: number; familycardNumber: string; value: number; balance?: number; validityDate?: string; inactive?: boolean; deleted?: boolean; customerId?: number; person?: { id?: number } }
+export interface CouponValidation {
+  valid: boolean;
+  error?: string;
+  coupon?: { id: number; couponNumber: string; value: number; couponOption: "percentage" | "price"; description?: string };
+  requiresCustomer?: boolean;
+  minBillValue?: number;
+  currentBillTotal?: number;
+}
+
+export const lookupGiftCard = async (number: string): Promise<GiftCardLite | null> => {
+  const r = await api.get<{ giftcards?: GiftCardLite[] } | GiftCardLite[]>(`/giftcards?page=1&limit=1&number=${encodeURIComponent(number)}`);
+  const list = Array.isArray(r) ? r : r.giftcards ?? [];
+  return list[0] ?? null;
+};
+export const lookupFamilyCard = async (number: string): Promise<FamilyCardLite | null> => {
+  const r = await api.get<{ familycards?: FamilyCardLite[] } | FamilyCardLite[]>(`/familycards?page=1&limit=1&number=${encodeURIComponent(number)}`);
+  const list = Array.isArray(r) ? r : r.familycards ?? [];
+  return list[0] ?? null;
+};
+export const validateCoupon = (code: string, customerId: number | string, billTotal: number) =>
+  api.get<CouponValidation>(`/coupons/validate/${encodeURIComponent(code)}?customerId=${customerId}&billTotal=${billTotal}`);
+
+export const redeemGiftCard = (id: number, body: { giftcardNumber: string; redeemValue: number; saleId: string }) =>
+  api.patch(`/giftcards/${id}/redeem`, body);
+export const redeemFamilyCard = (id: number, body: { familyCardNumber: string; redeemValue: number; saleId: string }) =>
+  api.patch(`/familycards/${id}/redeem`, body);
+export const redeemCoupon = (id: number, body: { couponNumber: string; redeemValue: number; customerId: number | string; billTotal: number }) =>
+  api.patch(`/coupons/${id}/redeem`, body);
+
 /* ---- Create customer (POST /customers, flat payload) ---- */
 
 export interface NewCustomerInput {
