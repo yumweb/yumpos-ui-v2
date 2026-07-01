@@ -7,6 +7,7 @@ import {
 import { cn } from "@/lib/cn";
 import { NewCustomerModal } from "./NewCustomerModal";
 import { SellCardModal } from "./SellCardModal";
+import { PackageModal } from "./PackageModal";
 import { formatINR } from "@/lib/format";
 import { isApiConfigured } from "@/lib/apiClient";
 import { getLocation, getUser } from "@/lib/auth";
@@ -31,10 +32,14 @@ import {
   customerId,
   GIFT_CARD_ITEM_ID,
   FAMILY_CARD_ITEM_ID,
+  useKitSearch,
+  fetchPackage,
   type PosItem,
   type CartLine,
   type CustomerLite,
   type SpecialCard,
+  type KitLite,
+  type PackageLine,
 } from "./api";
 
 /** Payment methods carried over verbatim from the existing register. */
@@ -88,6 +93,7 @@ export function POS() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [newCustOpen, setNewCustOpen] = useState(false);
   const [sellCard, setSellCard] = useState<{ kind: "giftCard" | "familyCard" } | null>(null);
+  const [pkgModal, setPkgModal] = useState<PackageLine | null>(null);
   const [entireDisc, setEntireDisc] = useState("");
   const [discAll, setDiscAll] = useState("");
   const [lastSaleId, setLastSaleId] = useState<number | string | null>(null);
@@ -106,6 +112,7 @@ export function POS() {
 
   const configured = isApiConfigured();
   const search = useItemSearch(keyword);
+  const kitSearch = useKitSearch(keyword);
   const cats = useCategoryNames();
   const catMap = cats.data ?? new Map<string, string>();
   const loc = useLocation(locationId);
@@ -214,6 +221,23 @@ export function POS() {
     setLines((cur) => [...cur, { item, qty: 1, technicianId: null, discountPercent: 0, special: s }]);
     setError("");
   }
+  async function openPackage(k: KitLite) {
+    setOpen(false);
+    try {
+      const detail = await fetchPackage(k.itemKitId);
+      setPkgModal(detail);
+    } catch {
+      setError("Couldn’t load that package. Please try again.");
+    }
+  }
+  function addPackage(p: PackageLine) {
+    const item: PosItem = {
+      id: `kit-${p.itemKitId}`, name: `Package: ${p.name}`, price: p.unitPrice,
+      category: "", isService: false, taxIncluded: p.taxIncluded, stock: 0,
+    };
+    setLines((cur) => [...cur, { item, qty: 1, technicianId: null, discountPercent: 0, pkg: p }]);
+    setError("");
+  }
 
   /* ---- validations (parity with Sales.js) ---- */
   function validate(forSuspend: boolean): string | null {
@@ -222,7 +246,7 @@ export function POS() {
     const zero = lines.find((l) => Number(l.item.price) === 0);
     if (zero) return `${zero.item.name} price should not be zero.`;
     if (!forSuspend) {
-      const noTech = lines.find((l) => !l.special && !l.technicianId);
+      const noTech = lines.find((l) => !l.special && !l.pkg && !l.technicianId);
       if (noTech) return "Select a technician for every item in the cart.";
     }
     return null;
@@ -239,6 +263,10 @@ export function POS() {
       return;
     }
     setError("");
+    // A sale containing a package is flagged suspended:4 (the backend's "package"
+    // state) so it shows in the packages list and its items can be redeemed later.
+    const hasPackage = lines.some((l) => l.pkg);
+    const saleSuspended: 0 | 1 | 4 = suspended === 1 ? 1 : hasPackage ? 4 : 0;
     const itemTaxes = [
       { name: tax.name1, percent: tax.rate1 },
       { name: tax.name2, percent: tax.rate2 },
@@ -258,6 +286,26 @@ export function POS() {
             description: l.item.name, line: idx, quantityPurchased: 1, discountPercent: 0, commission: 0,
             serviceEmployeeId: employeeId ?? 0, itemTaxes, id: l.item.id, serialNumber: 0,
             itemCostPrice: l.special.price, itemUnitPrice: l.special.price, isService: true,
+          },
+        });
+        return;
+      }
+      if (l.pkg) {
+        // A package (item kit): services ticked "used now" are redeemed at sale;
+        // the rest stay on the package (suspended:4) for later redemption.
+        items.push({
+          itemType: "itemKit",
+          itemKit: {
+            id: l.pkg.itemKitId, description: l.pkg.name, line: idx, quantityPurchased: 1,
+            discountPercent: 0, commission: 0, serviceEmployeeId: employeeId ?? 0, itemTaxes, isService: false,
+            itemKitCostPrice: l.pkg.costPrice, itemKitUnitPrice: l.pkg.unitPrice,
+            itemkitItems: l.pkg.services.map((s, si) => ({
+              itemId: s.itemId,
+              redeemed: s.redeemed,
+              ...(s.redeemed ? { itemServiceEmployeeId: Number(s.technicianId) } : {}),
+              itemLine: si,
+              quantityPurchased: s.quantity,
+            })),
           },
         });
         return;
@@ -296,13 +344,15 @@ export function POS() {
         : payments.length > 0
           ? payments.map((p) => ({ paymentType: payTypeForApi(p.method), paymentAmount: p.amount }))
           : [{ paymentType: payTypeForApi(payMethod), paymentAmount: bill.total }],
-      suspended,
+      suspended: saleSuspended,
       saleTime: new Date().toISOString(),
     };
     createSale.mutate(payload, {
       onSuccess: async (res) => {
         const saleId = (res as { id?: number | string })?.id ?? null;
         setLastSaleId(saleId);
+        // Completed sales and package sales are paid → redeem instruments + open the
+        // receipt. A plain hold (Suspend, suspended:1) does neither.
         if (suspended === 0 && saleId != null) {
           // Redeem instruments now that we have a saleId (sale is already saved; best-effort).
           for (const p of payments) {
@@ -416,13 +466,13 @@ export function POS() {
             <Card className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden shadow-soft">
               {!configured ? (
                 <p className="p-6 text-center text-sm text-ink-3">Connect the API to search the live catalogue.</p>
-              ) : search.isLoading ? (
+              ) : (search.isLoading || kitSearch.isLoading) && (search.data?.length ?? 0) === 0 && (kitSearch.data?.length ?? 0) === 0 ? (
                 <p className="p-6 text-center text-sm text-ink-3">Searching…</p>
-              ) : (search.data?.length ?? 0) === 0 ? (
-                <p className="p-6 text-center text-sm text-ink-3">No items match “{keyword}”.</p>
+              ) : (search.data?.length ?? 0) === 0 && (kitSearch.data?.length ?? 0) === 0 ? (
+                <p className="p-6 text-center text-sm text-ink-3">No items or packages match “{keyword}”.</p>
               ) : (
                 <div className="max-h-[58vh] divide-y divide-border overflow-auto">
-                  {search.data!.map((it) => {
+                  {(search.data ?? []).map((it) => {
                     const parent = it.categoryParentId != null ? catMap.get(String(it.categoryParentId)) : undefined;
                     const meta = `${it.isService ? "Service" : "Retail Product"} · ${it.category || "NA"}${parent ? " › " + parent : ""}`;
                     return (
@@ -438,6 +488,20 @@ export function POS() {
                       </button>
                     );
                   })}
+                  {(kitSearch.data?.length ?? 0) > 0 && (
+                    <>
+                      <div className="bg-surface-2 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-3">Packages</div>
+                      {kitSearch.data!.map((k) => (
+                        <button key={`kit-${k.itemKitId}`} onClick={() => openPackage(k)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[14px] font-semibold">{k.name}</div>
+                            <div className="truncate text-xs text-ink-3">Package</div>
+                          </div>
+                          <div className="tnum shrink-0 font-semibold">{formatINR(k.price)}</div>
+                        </button>
+                      ))}
+                    </>
+                  )}
                 </div>
               )}
             </Card>
@@ -472,15 +536,27 @@ export function POS() {
               </thead>
               <tbody>
                 {lines.map((l, idx) => (
-                  <tr key={l.special ? `${l.special.kind}-${l.special.number}` : String(l.item.id)} className="border-t border-border align-middle">
+                  <tr key={`${l.special ? l.special.kind + "-" + l.special.number : l.pkg ? "kit-" + l.pkg.itemKitId : l.item.id}-${idx}`} className="border-t border-border align-middle">
                     <td className="px-5 py-2.5 font-semibold">
                       {l.item.name}
                       {l.special?.kind === "familyCard" && l.special.value !== l.special.price && (
                         <span className="ml-1 text-xs font-normal text-ink-3">(credit {formatINR(l.special.value)})</span>
                       )}
+                      {l.pkg && (
+                        <ul className="mt-1 space-y-0.5 text-xs font-normal text-ink-3">
+                          {l.pkg.services.map((s, si) => (
+                            <li key={`${s.itemId}-${si}`} className="flex items-center gap-1.5">
+                              <span className="truncate">{s.name}{s.quantity > 1 ? ` ×${s.quantity}` : ""}</span>
+                              {s.redeemed
+                                ? <span className="rounded bg-brand-100 px-1.5 py-px text-[10px] font-semibold text-brand">Used now</span>
+                                : <span className="rounded bg-surface-2 px-1.5 py-px text-[10px] font-semibold text-ink-3">For later</span>}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </td>
                     <td className="py-2.5">
-                      {l.special ? (
+                      {l.special || l.pkg ? (
                         <span className="text-ink-3">—</span>
                       ) : (
                         <select
@@ -499,7 +575,7 @@ export function POS() {
                       )}
                     </td>
                     <td className="py-2.5">
-                      {l.special ? (
+                      {l.special || l.pkg ? (
                         <span className="tnum">1</span>
                       ) : (
                         <div className="inline-flex items-center overflow-hidden rounded-md border border-border">
@@ -510,7 +586,7 @@ export function POS() {
                       )}
                     </td>
                     <td className="py-2.5">
-                      {l.special || !l.item.isService ? (
+                      {l.special || l.pkg || !l.item.isService ? (
                         <span className="text-ink-3">—</span>
                       ) : (
                         <input
@@ -715,6 +791,14 @@ export function POS() {
         open={sellCard != null}
         onClose={() => setSellCard(null)}
         onAdd={addSpecialCard}
+      />
+
+      <PackageModal
+        pkg={pkgModal}
+        technicians={technicians}
+        open={pkgModal != null}
+        onClose={() => setPkgModal(null)}
+        onAdd={addPackage}
       />
     </div>
   );

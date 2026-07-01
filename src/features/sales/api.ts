@@ -61,6 +61,108 @@ export function useItemSearch(keyword: string) {
   });
 }
 
+/* ---- Packages (item kits) — Phase 4 ---- */
+
+/** A package search result (GET /itemkits?name=). */
+export interface KitLite {
+  itemKitId: number;
+  name: string;
+  price: number;
+  taxIncluded: boolean;
+}
+
+/** One included service of a package, configurable for redeem-at-sale. */
+export interface KitServiceLine {
+  itemId: number;
+  name: string;
+  isService: boolean;
+  quantity: number;
+  itemTaxes: { name: string; percent: number }[];
+  redeemed: boolean;
+  technicianId: number | string | null;
+}
+
+/** A fully-loaded package added to the cart. */
+export interface PackageLine {
+  itemKitId: number;
+  name: string;
+  unitPrice: number;
+  costPrice: number;
+  taxIncluded: boolean;
+  services: KitServiceLine[];
+}
+
+/** GET /itemkits?name= → package search results for the register. */
+export function useKitSearch(keyword: string) {
+  return useQuery({
+    queryKey: ["kit-search", keyword],
+    enabled: isApiConfigured() && keyword.trim().length > 0,
+    queryFn: async () => {
+      const res = await api.get<{ itemkits?: RawKit[] } | RawKit[]>(
+        `/itemkits?page=1&limit=20&name=${encodeURIComponent(keyword.trim())}`
+      );
+      const rows = Array.isArray(res) ? res : res.itemkits ?? [];
+      return rows
+        .map((r): KitLite => ({
+          itemKitId: Number(r.itemKitId ?? r.itemkit?.itemKitId),
+          name: r.itemkit?.name ?? "Package",
+          price: Number(r.unitPrice ?? r.itemkit?.unitPrice ?? 0) || 0,
+          taxIncluded: Boolean(r.itemkit?.taxIncluded ?? r.taxIncluded),
+        }))
+        .filter((k) => Number.isFinite(k.itemKitId) && k.itemKitId > 0);
+    },
+  });
+}
+
+interface RawKit {
+  itemKitId?: number | string;
+  name?: string;
+  unitPrice?: number | string | null;
+  costPrice?: number | string | null;
+  taxIncluded?: boolean;
+  itemkit?: {
+    itemKitId?: number | string;
+    name?: string;
+    taxIncluded?: boolean;
+    unitPrice?: number | string | null;
+    costPrice?: number | string | null;
+    itemkitItems?: RawKitItem[];
+  };
+  itemkitItems?: RawKitItem[];
+}
+interface RawKitItem {
+  itemId?: number | string;
+  quantity?: number | string | null;
+  item?: { itemId?: number | string; name?: string; isService?: boolean; itemTaxes?: { name?: string; percent?: number | string }[] };
+}
+
+/** GET /itemkits/:id → the package with its included services (for the config modal). */
+export async function fetchPackage(itemKitId: number): Promise<PackageLine> {
+  const r = await api.get<RawKit>(`/itemkits/${itemKitId}`);
+  const kit = r.itemkit ?? r;
+  const rawItems = kit.itemkitItems ?? r.itemkitItems ?? [];
+  const services: KitServiceLine[] = rawItems.map((ki) => {
+    const it = ki.item ?? {};
+    return {
+      itemId: Number(ki.itemId ?? it.itemId),
+      name: it.name ?? "Service",
+      isService: Boolean(it.isService),
+      quantity: Number(ki.quantity ?? 1) || 1,
+      itemTaxes: (it.itemTaxes ?? []).map((t) => ({ name: t.name ?? "", percent: Number(t.percent) || 0 })),
+      redeemed: false,
+      technicianId: null,
+    };
+  });
+  return {
+    itemKitId: Number(r.itemKitId ?? kit.itemKitId ?? itemKitId),
+    name: kit.name ?? "Package",
+    unitPrice: Number(r.unitPrice ?? kit.unitPrice ?? 0) || 0,
+    costPrice: Number(r.costPrice ?? kit.costPrice ?? 0) || 0,
+    taxIncluded: Boolean(kit.taxIncluded),
+    services,
+  };
+}
+
 interface CategoryName {
   id: number | string;
   name: string;
@@ -176,6 +278,8 @@ export interface CartLine {
   discountPercent: number;
   /** Set when this line is a gift/family card being sold. */
   special?: SpecialCard;
+  /** Set when this line is a package (item kit) being sold. */
+  pkg?: PackageLine;
 }
 
 export interface Bill {
